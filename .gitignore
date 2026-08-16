@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+*.db
+*.db-*
+.env
+.hermes/
+logs/
+reports/*.json
+reports/price-probe-*.json
+/tmp/
+.DS_Store
