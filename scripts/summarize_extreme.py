@@ -110,7 +110,7 @@ def main() -> int:
         ax.set_yticklabels([r["model"] for r in rows], fontsize=9)
         for i in range(len(rows)):
             for j in range(len(TESTS)):
-                e = rows[i]["tests"][TESTS[j]]
+                e = rows[i][TESTS[j]]
                 if e["status"] != "OK":
                     ax.text(j, i, "FAIL", ha="center", va="center",
                             color="white", fontsize=8, fontweight="bold")
@@ -120,7 +120,7 @@ def main() -> int:
                         txt = "✓✗"
                     ax.text(j, i, txt, ha="center", va="center", color="white",
                             fontsize=10, fontweight="bold")
-        ax.set_title("Extreme tests — 11 frontier models under stress",
+        ax.set_title(f"Extreme tests — {len(rows)}/11 frontier models (battery in progress)",
                      fontsize=13, fontweight="bold", color=TEXT, pad=12)
         ax.grid(False)
         for s in ax.spines.values():

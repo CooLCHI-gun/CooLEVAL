@@ -54,10 +54,10 @@ plt.rcParams.update({
 # ── 1. Meltdown curve (flagship) ────────────────────────────────────────
 def meltdown_curve():
     buckets = ["<15 min", "15–60 min", "1–4 h", "4–24 h", ">24 h"]
-    rate = [0.979, 0.942, 0.250, 0.0, 0.0]
-    lo = [0.960, 0.844, 0.071, 0.0, 0.0]
-    hi = [0.990, 0.980, 0.591, 0.354, 0.243]
-    n = [388, 52, 8, 7, 12]
+    rate = [0.984, 0.944, 0.250, 0.0, 0.0]
+    lo = [0.969, 0.849, 0.071, 0.0, 0.0]
+    hi = [0.992, 0.981, 0.591, 0.354, 0.243]
+    n = [505, 54, 8, 7, 12]
     x = range(len(buckets))
 
     fig, ax = plt.subplots(figsize=(11, 5.2), dpi=150)
@@ -80,8 +80,9 @@ def meltdown_curve():
     ax.spines["right"].set_visible(False)
     fig.subplots_adjust(left=0.09, right=0.97, top=0.90, bottom=0.17)
     fig.text(0.5, 0.045,
-             "622 real agent sessions · artifact-verified outcomes, not self-report · "
-             "Wilson 95% CIs shown — long-duration buckets are low-n, interpret carefully",
+             "586 real sessions (battery one-shots excluded by pre-registered rule) · "
+             "artifact-verified outcomes, not self-report · Wilson 95% CIs shown — "
+             "long-duration buckets are low-n, interpret carefully",
              ha="center", fontsize=8.5, color=TEXT, alpha=0.8)
     fig.savefig(OUT / "meltdown_curve.png", bbox_inches="tight")
     plt.close(fig)
@@ -90,8 +91,8 @@ def meltdown_curve():
 # ── 2. Survival + hazard ────────────────────────────────────────────────
 def survival_hazard():
     buckets = ["<15 min", "15–60 min", "1–4 h", "4–24 h", ">24 h"]
-    rate = [0.979, 0.942, 0.250, 0.0, 0.0]
-    n = [388, 52, 8, 7, 12]
+    rate = [0.984, 0.944, 0.250, 0.0, 0.0]
+    n = [505, 54, 8, 7, 12]
     # discrete survival: cumulative product of bucket success rates
     surv = [1.0]
     for r in rate:
