@@ -18,6 +18,7 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 from PIL import Image
 
 BG, PANEL, GRID = "#050711", "#0B1020", "#2C3550"
@@ -132,10 +133,9 @@ def meltdown_gif():
         frames.append(snapshot())
 
     out = ASSETS / "meltdown_curve_animated.gif"
-    intro = intro_frame(10.2, 4.8, "Session meltdown — measured, not benchmarked")
-    all_frames = [intro] + frames
+    all_frames = frames  # logo intro dropped (watermark stays per-frame)
     all_frames[0].save(out, save_all=True, append_images=all_frames[1:],
-                       duration=190, loop=0, optimize=True)
+                       duration=120, loop=0, optimize=True)
     print(f"saved -> {out} ({len(all_frames)} frames)")
 
 
@@ -196,12 +196,47 @@ def race_gif():
             frames.append(snapshot())
 
     out = ASSETS / "extreme_race_animated.gif"
-    intro = intro_frame(10.2, max(4.6, 0.5 * len(scores) + 2.2),
-                        "Who survives all five extreme tests?")
-    all_frames = [intro] + frames
+    all_frames = frames  # logo intro dropped (watermark stays per-frame)
     all_frames[0].save(out, save_all=True, append_images=all_frames[1:],
-                       duration=170, loop=0, optimize=True)
+                       duration=140, loop=0, optimize=True)
     print(f"saved -> {out} ({len(all_frames)} frames)")
+
+
+def logo_gif():
+    """Animated logo: dial + red melting arc sweeping clockwise, loop forever."""
+    import numpy as np
+    n_frames = 14
+    frames = []
+    for f in range(n_frames):
+        fig = plt.figure(figsize=(2.6, 2.6), dpi=140, facecolor=BG)
+        ax = fig.add_subplot(111)
+        ax.set_xlim(-1.2, 1.2); ax.set_ylim(-1.2, 1.2); ax.axis("off")
+        dial = mpatches.Circle((0, 0), 1.0, fc=BG, ec="#E8EAF0", lw=2.2)
+        ax.add_patch(dial)
+        for k in range(12):
+            ang = np.deg2rad(k * 30 - 90)
+            ax.plot([0.88*np.cos(ang), 0.95*np.cos(ang)],
+                    [0.88*np.sin(ang), 0.95*np.sin(ang)],
+                    color="#E8EAF0", lw=1.0, alpha=0.6)
+        ax.plot([0, 0], [0.88, 0.95], color=GREEN, lw=2.4)
+        # arc sweeps from -90 deg to up to +230 deg, then loops
+        sweep = np.deg2rad(50 + (f / (n_frames - 1)) * 180)  # 50° -> 230°
+        th = np.linspace(np.deg2rad(-90), np.deg2rad(-90) + sweep, 80)
+        ax.plot(np.cos(th), np.sin(th), color=RED, lw=3.4, solid_capstyle="round")
+        # melting tail particles
+        tail_start = np.deg2rad(-90) + sweep
+        for j, t in enumerate(np.linspace(tail_start, tail_start + 0.35, 4)):
+            r = np.random.uniform(0.55, 0.88)
+            ax.plot(r*np.cos(t), r*np.sin(t), "o", ms=3.5 - j*0.6, color=RED, alpha=0.5)
+        fig.tight_layout()
+        fig.canvas.draw()
+        buf = np.asarray(fig.canvas.buffer_rgba())
+        plt.close(fig)
+        frames.append(Image.fromarray(buf).convert("RGB"))
+    out = ASSETS / "cooleval_logo_animated.gif"
+    frames[0].save(out, save_all=True, append_images=frames[1:],
+                   duration=160, loop=0, optimize=True)
+    print(f"saved -> {out} ({len(frames)} frames)")
 
 
 def main() -> int:
@@ -211,10 +246,7 @@ def main() -> int:
     args = ap.parse_args()
     RESULTS = Path(args.results)
 
-    frames = [intro_frame(10.2, 4.8, "Agent success collapses past the one-hour mark")]
-    # meltdown gif with its own intro
-    im = intro_frame(10.2, 4.8, "Session meltdown — measured, not benchmarked")
-    # simple: prepend intro to meltdown by regenerating inside; keep race standalone
+    logo_gif()
     meltdown_gif()
     race_gif()
     return 0

@@ -32,6 +32,34 @@ ORANGE = "#FFB84B"
 RED = "#FF4B4B"
 PURPLE = "#C792EA"
 
+THEMES = {
+    "dark": {"BG": "#050711", "PANEL": "#0B1020", "GRID": "#2C3550",
+             "TEXT": "#C3C7D6", "GREEN": "#3DD68C", "BLUE": "#4DA3FF",
+             "ORANGE": "#FFB84B", "RED": "#FF4B4B", "PURPLE": "#C792EA"},
+    "light": {"BG": "#FFFFFF", "PANEL": "#F2F4F8", "GRID": "#D5DAE5",
+              "TEXT": "#12151F", "GREEN": "#17A05F", "BLUE": "#1F6FEB",
+              "ORANGE": "#D97706", "RED": "#DC2626", "PURPLE": "#7C3AED"},
+}
+
+
+def render_all(theme: str):
+    global BG, PANEL, GRID, TEXT, GREEN, BLUE, ORANGE, RED, PURPLE
+    colors = THEMES[theme]
+    BG = colors["BG"]; PANEL = colors["PANEL"]; GRID = colors["GRID"]
+    TEXT = colors["TEXT"]; GREEN = colors["GREEN"]; BLUE = colors["BLUE"]
+    ORANGE = colors["ORANGE"]; RED = colors["RED"]; PURPLE = colors["PURPLE"]
+    plt.rcParams.update({
+        "figure.facecolor": BG, "axes.facecolor": BG, "savefig.facecolor": BG,
+        "text.color": TEXT, "axes.edgecolor": GRID, "axes.labelcolor": TEXT,
+        "xtick.color": TEXT, "ytick.color": TEXT, "grid.color": GRID,
+    })
+    suffix = f"_{theme}"
+    meltdown_curve(suffix)
+    survival_hazard(suffix)
+    architecture(suffix)
+    if theme == "dark":
+        logo()
+
 OUT = Path("/root/workspace/CooLEVAL/assets")
 OUT.mkdir(parents=True, exist_ok=True)
 
@@ -52,7 +80,7 @@ plt.rcParams.update({
 })
 
 # ── 1. Meltdown curve (flagship) ────────────────────────────────────────
-def meltdown_curve():
+def meltdown_curve(suffix: str = ""):
     buckets = ["<15 min", "15–60 min", "1–4 h", "4–24 h", ">24 h"]
     rate = [0.984, 0.944, 0.250, 0.0, 0.0]
     lo = [0.969, 0.849, 0.071, 0.0, 0.0]
@@ -84,12 +112,12 @@ def meltdown_curve():
              "artifact-verified outcomes, not self-report · Wilson 95% CIs shown — "
              "long-duration buckets are low-n, interpret carefully",
              ha="center", fontsize=8.5, color=TEXT, alpha=0.8)
-    fig.savefig(OUT / "meltdown_curve.png", bbox_inches="tight")
+    fig.savefig(OUT / f"meltdown_curve{suffix}.png", bbox_inches="tight")
     plt.close(fig)
-    print("meltdown_curve.png")
+    print(f"meltdown_curve{suffix}.png")
 
 # ── 2. Survival + hazard ────────────────────────────────────────────────
-def survival_hazard():
+def survival_hazard(suffix: str = ""):
     buckets = ["<15 min", "15–60 min", "1–4 h", "4–24 h", ">24 h"]
     rate = [0.984, 0.944, 0.250, 0.0, 0.0]
     n = [505, 54, 8, 7, 12]
@@ -128,12 +156,12 @@ def survival_hazard():
     fig.text(0.5, 0.03,
              "Discrete estimates from observed session outcomes · long buckets are low-n",
              ha="center", fontsize=8.5, alpha=0.8)
-    fig.savefig(OUT / "survival_hazard.png", bbox_inches="tight")
+    fig.savefig(OUT / f"survival_hazard{suffix}.png", bbox_inches="tight")
     plt.close(fig)
-    print("survival_hazard.png")
+    print(f"survival_hazard{suffix}.png")
 
 # ── 3. Architecture diagram ─────────────────────────────────────────────
-def architecture():
+def architecture(suffix: str = ""):
     fig, ax = plt.subplots(figsize=(11.5, 4.6), dpi=150)
     ax.set_xlim(0, 12); ax.set_ylim(0, 5); ax.axis("off")
 
@@ -173,9 +201,9 @@ def architecture():
     ax.text(3.6, 4.85, "L1 · METRICS / EXECUTION", fontsize=8.5, color=BLUE, fontweight="bold")
     ax.text(9.5, 4.85, "L3 · REPORTING", fontsize=8.5, color=ORANGE, fontweight="bold")
     fig.tight_layout()
-    fig.savefig(OUT / "architecture.png", bbox_inches="tight")
+    fig.savefig(OUT / f"architecture{suffix}.png", bbox_inches="tight")
     plt.close(fig)
-    print("architecture.png")
+    print(f"architecture{suffix}.png")
 
 # ── 4. Logo ─────────────────────────────────────────────────────────────
 def logo():
@@ -210,8 +238,6 @@ def logo():
 
 
 if __name__ == "__main__":
-    meltdown_curve()
-    survival_hazard()
-    architecture()
-    logo()
+    for theme in ("dark", "light"):
+        render_all(theme)
     print("done ->", OUT)

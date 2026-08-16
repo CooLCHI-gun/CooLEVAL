@@ -1,46 +1,50 @@
 <p align="center">
-  <img src="assets/cooleval_logo.png" alt="CooLEVAL logo — a dial with a melting red arc" width="140">
+  <img src="assets/logo.svg" alt="CooLEVAL logo — a dial with a melting red reliability arc" width="100">
 </p>
 
 <h1 align="center">CooLEVAL</h1>
 
-<p align="center"><strong>Agent success collapses past the one-hour mark. We measured it on our own production traffic: 2 of 27 long sessions succeeded.</strong></p>
+<p align="center"><strong>Agent success collapses past the one-hour mark — measured on production traffic, not a benchmark.</strong></p>
 
 <p align="center">
-  <code>586 sessions</code> · <code>777 tasks</code> · <code>&lt;15min: 98.4% (n=505)</code> · <code>&ge;1h pooled: 7.4% — 2/27 [Wilson 95% CI 2.1–23.4%]</code> · <code>Fisher exact p = 9.2e-34</code>
+  <code>586 sessions</code> · <code>&lt;15min 98.4%</code> · <code>&ge;1h 7.4% (2/27)</code>
 </p>
 
 <p align="center">
-  <a href="#the-meltdown-curve">See the curve</a> · <a href="#quickstart">Quickstart</a> · <a href="#limitations">Limitations</a>
+  <a href="#the-meltdown-curve">See the curve</a> · <a href="#quickstart">Quickstart</a> · <a href="#extreme-tests--where-the-ceiling-actually-shows">Extreme tests</a> · <a href="#limitations">Limitations</a>
 </p>
 
-> Dogfood evaluation framework for production AI agents. Every number in this README comes from `eval-metrics.py` over real sessions, run 2026-08-16 — not a synthetic benchmark.
+> Dogfood evaluation framework for production AI agents. Every number in this README
+> comes from `eval-metrics.py` over real sessions, run 2026-08-16 — not a synthetic
+> benchmark. One-liner with a risk ratio: **13.3× more likely to fail at ≥1 h than under 15 min.**
 
 ## The Meltdown Curve
 
 Short sessions look great. Long sessions don't fail linearly — they collapse.
-
 CooLEVAL instruments **your agent on your workload** and measures success by session
 duration, with Wilson 95% CIs and artifact-verified outcomes (never self-report).
 
-![Success rate by session duration: 98.4% under 15 minutes falling to 0.0% beyond 4 hours](assets/meltdown_curve.png)
+![animated meltdown curve: success rate by duration bucket, MELTDOWN reveal](assets/meltdown_curve_animated.gif)
 
-| Session duration | Success | 95% CI (Wilson) | n |
-|---|---:|:---:|---:|
-| < 15 min | 98.4% | [96.9–99.2] | 505 |
-| 15–60 min | 94.4% | [84.9–98.1] | 54 |
-| 1–4 h | 25.0% | [7.1–59.1] | 8 |
-| 4–24 h | 0.0% | [0.0–35.4] | 7 |
-| > 24 h | 0.0% | [0.0–24.3] | 12 |
-| **≥ 1 h (pooled)** | **7.4%** | **[2.1–23.4]** | **27** |
+| Duration | n | Success | 95% CI (Wilson) |
+|---|---:|---:|---:|
+| < 15 min | 505 | 98.4% | [96.9–99.2%] |
+| 15–60 min | 54 | 94.4% | [84.9–98.1%] |
+| 1–4 h † | 8 | 25.0% | [7.1–59.1%] |
+| 4–24 h † | 7 | 0.0% | [0.0–35.4%] |
+| > 24 h † | 12 | 0.0% | [0.0–24.3%] |
+| **≥ 1 h (pooled)** | **27** | **7.4%** | **[2.1–23.4%]** |
 
-The individual long buckets are low-n (flagged exploratory by the n-gate); the
-pooled contrast is not: **497/505 vs 2/27, Fisher exact p = 9.2e-34.** The collapse
-is real. If your agent runs for more than an hour, it probably fails.
+† n < 20 — exploratory per n-gate. The individual long buckets are low-n; the pooled
+contrast is not: **497/505 vs 2/27, Fisher exact p = 9.2e-34**. If your agent runs for
+more than an hour, it probably fails.
 
 ## Survival & Hazard Analysis
 
-![survival curve with per-bucket hazard bars](assets/survival_hazard.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/survival_hazard_dark.png">
+  <img alt="survival curve with per-bucket hazard bars" src="assets/survival_hazard_light.png" width="820">
+</picture>
 
 Survival (blue) tracks the probability a session is still successful as duration
 grows; hazard (red) is the per-bucket failure rate. Guardrail metrics — tool
@@ -79,68 +83,63 @@ python3 scripts/eval-report.py
 Task specs are pre-registered with `spec_hash` and `difficulty` — reproducibility
 without outcome-inferred labels.
 
-## Extreme Tests — who survives all five?
+## Extreme Tests — where the ceiling actually shows
 
-The same 5 hard ceiling tests, run against **all 11 models: closed frontier, open
-weights, and the baseline** — so you can see the real gap, not the marketing gap.
-Full methodology and results in [RESEARCH.md](RESEARCH.md).
+11 models (closed frontier, open weights, baseline), 5 hard ceiling tests, rubric
+scored — see [RESEARCH.md](RESEARCH.md) for methodology and the animated race.
 
-| Test | What it stresses | Failure signature |
-|:--|:--|:--|
-| T1 · Multi-step reasoning | USAMO-style telescoping proof + exact computation | Skipped steps, wrong derivation |
-| T2 · Long-context recall | ~50K-token doc, 6 embedded facts, positional recall | Forgotten facts, position bias |
-| T3 · Adversarial instruction | 10 rules incl. lipogram (no letter *e*) | Constraint forgetting |
-| T4 · Concurrent code | 7+ requirements, retry scheduler, syntax-verified | Missing features, non-runnable |
-| T5 · Agentic planning | Full-stack mission, fail conditions, confidence calibration | Vague phases, overconfidence |
+**All 11 models produced responses on all 5 tests; binary pass/fail is saturated.**
+The only binary signal: T4 code failed `py_compile` for claude-opus-5, glm-5.2, and
+deepseek-v4-flash. The discriminating signal is the rubric score — automated,
+reproducible (`scripts/score_tests.py`):
 
-![animated race — models completing the five extreme tests](assets/extreme_race_animated.gif)
+| Model | Family | T1 proof | T2 long-ctx | T3 lipogram | T4 code | T5 planning | Total |
+|:--|:--|:--:|:--:|:--:|:--:|:--:|:--:|
+| qwen3.6-plus | open | 0.80 | 1.00 | 0.70 | 1.00 | 0.90 | **0.88** |
+| claude-sonnet-4-6 | closed | 0.90 | 1.00 | 0.40 | 1.00 | 0.80 | 0.82 |
+| gpt-5.6-sol | closed | 0.70 | 1.00 | 0.90 | 1.00 | 0.50 | 0.82 |
+| grok-4.6 | closed | 0.80 | 1.00 | 0.40 | 1.00 | 0.90 | 0.82 |
+| kimi-k3 | open | 0.50 | 1.00 | 0.35 | 1.00 | 1.00 | 0.77 |
+| deepseek-v4-pro | open | 0.80 | 1.00 | 0.25 | 1.00 | 0.70 | 0.75 |
+| nemotron-3-ultra-free | open | 0.50 | 1.00 | 0.10 | 1.00 | 0.60 | 0.64 |
+| glm-5.2 | open | 1.00 | 1.00 | 0.10 | 0.00 | 0.90 | 0.60 |
+| deepseek-v4-flash | baseline | 0.80 | 1.00 | 0.10 | 0.00 | 1.00 | 0.58 |
+| claude-fable-5 | closed | ∅ | ∅ | 0.50 | 1.00 | 0.60 | 0.42 |
+| claude-opus-5 | closed | ∅ | 1.00 | 0.80 | 0.00 | 0.00 | 0.36 |
 
-**Models (by family):** closed = claude-opus-5, claude-fable-5, claude-sonnet-4-6,
-grok-4.6, gpt-5.6-sol · open = deepseek-v4-pro, qwen3.6-plus, glm-5.2, kimi-k3,
-nemotron-3-ultra-free · baseline = deepseek-v4-flash
+∅ = no output returned for that test. Scoring is automated string/compile checks —
+see `scripts/score_tests.py` for exact rubrics.
 
-| Model | Family | T1 | T2 | T3 | T4 | T5 |
-|:--|:--|:--:|:--:|:--:|:--:|:--:|
-| claude-fable-5 | closed | ✅ | ✅ | ✅ | ✅ | ✅ |
-| claude-opus-5 | closed | ✅ | ✅ | ✅ | ⚠️ syntax | ✅ |
-| claude-sonnet-4-6 | closed | ✅ | ✅ | ✅ | ✅ | ✅ |
-| grok-4.6 | closed | ✅ | ✅ | ✅ | ✅ | ✅ |
-| gpt-5.6-sol | closed | ✅ | ✅ | ✅ | ✅ | ✅ |
-| deepseek-v4-pro | open | ✅ | ✅ | ✅ | ✅ | ✅ |
-| qwen3.6-plus | open | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ |
-| glm-5.2 | open | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ |
-| kimi-k3 | open | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ |
-| nemotron-3-ultra-free | open | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ |
-| deepseek-v4-flash | baseline | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ |
+![extreme tests — automated rubric scores heatmap, 0 to 1, ∅ = no output](assets/extreme_test_heatmap.png)
 
-*(Battery in progress — 6/11 complete. The table, heatmap and race GIF refresh from
-`scripts/summarize_extreme.py` + `scripts/make_animate.py` when it finishes.)*
-
-![extreme test heatmap — 11 frontier models across 5 ceiling tests](assets/extreme_test_heatmap.png)
+What the real situation says:
+- **The lipogram test (no letter *e*) is the hardest**: best score 0.90 (gpt-5.6-sol),
+  most models 0.10–0.40 — consistent with the known transformer weakness at
+  character-level constraints.
+- **Long-context recall saturated** (1.00 everywhere): at ~30K tokens, every model
+  found the embedded facts. Not a differentiator at this size.
+- **Two flagship closed models returned empty outputs on the proof test** (∅) —
+  worth investigating whether it's proxy reasoning-budget behavior, not a quality claim.
+- Latency varies 6.3× (37–231 s/test); qwen3.6-plus is slowest by far (19 min total).
 
 Pre-flight findings (2026-08, `price-probe.py`): providers list models that aren't
 callable — all Claude-family endpoints rejected the `temperature` parameter
 (deprecated), GPT-family required the Responses API, and a Gemini endpoint was down
 entirely. The probe catches this before you waste a battery.
 
-See [RESEARCH.md](RESEARCH.md) for the full research: probe findings, the real-task
-battery comparison (stronger model ≠ better agent loop), and methodology.
-
 ## Architecture (L0–L3)
 
 One script per layer, no framework.
 
-![architecture diagram: L0 ETL → L1 metrics → L2 runner → L3 reporting](assets/architecture.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/architecture_dark.png">
+  <img alt="architecture diagram: L0 ETL → L1 metrics → L2 runner → L3 reporting" src="assets/architecture_light.png" width="820">
+</picture>
 
-```
-L0  DATA      eval-etl.py      ← idempotent ETL: JSONL traces + SQLite lifecycle +
-                                 sessions → eval.db (watermarks, dedup, reconciliation)
-L1  METRICS   eval-metrics.py  ← success rate (Wilson CI), hazard curve, failure
-                                 taxonomy, tool-failure rates, loopiness guardrails
-L2  EXECUTION eval-runner.py   ← dogfood task battery, artifact-verified outcomes
-              extreme-test-runner.py ← 5-test ceiling battery (direct API)
-L3  REPORT    eval-report.py   ← markdown report; eval-api.py (read-only REST)
-```
+- **L0 · DATA** — `eval-etl.py`: idempotent ETL from JSONL traces + SQLite lifecycle + sessions → eval.db (watermarks, dedup, reconciliation)
+- **L1 · METRICS** — `eval-metrics.py`: success rate (Wilson CI), hazard curve, failure taxonomy, tool-failure rates, loopiness guardrails
+- **L2 · EXECUTION** — `eval-runner.py`: dogfood task battery (artifact-verified); `extreme-test-runner.py`: 5-test ceiling battery (direct API)
+- **L3 · REPORT** — `eval-report.py`: markdown report; `eval-api.py`: read-only REST
 
 ## Design Principles
 
@@ -162,10 +161,11 @@ scripts/
   eval-api.py              read-only REST API over the eval DB
   price-probe.py           provider pre-flight: which listed models actually respond
   extreme-test-runner.py   5-test ceiling battery (direct API, multi-provider)
-  summarize_extreme.py     battery results → summary table + heatmap
-  make_assets.py           regenerate the dark-theme visuals
-  make_animate.py          regenerate the animated GIFs (logo intro + race)
-assets/                    original visuals: static charts + animated GIFs
+  score_tests.py           automated rubric scoring + heatmap
+  summarize_extreme.py     battery results → summary table
+  make_assets.py           regenerate static visuals (dark + light themes)
+  make_animate.py          regenerate animated GIFs + logo
+assets/                    original visuals (static, animated, logo.svg)
 reports/                   generated reports
 RESEARCH.md                probe findings, model batteries, methodology
 ```
@@ -176,11 +176,13 @@ RESEARCH.md                probe findings, model batteries, methodology
 - Task boundaries are self-reported by the session lifecycle; no covariate control for task difficulty vs duration.
 - Long-duration buckets are small (n=8/7/12); the pooled ≥1h contrast is the defensible claim.
 - Battery one-shot sessions are excluded from session-level analysis by a pre-registered rule.
+- Rubric scores are automated string/compile checks — not human expert grading.
 
 ## Roadmap
 
 - [x] ETL + metrics + dogfood battery (artifact-verified)
 - [x] Extreme ceiling battery (5 tests, direct API, multi-provider)
+- [x] Automated rubric scoring (0–1 per test, reproducible)
 - [ ] Semantic validation of artifacts (beyond exists-and-non-empty)
 - [ ] Token-efficiency metric (tokens-per-success, cache-adjusted)
 - [ ] Weekly scheduled reports

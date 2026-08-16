@@ -62,17 +62,57 @@ cross-provider comparisons are "model + scaffold" bundles, labelled as such.
 - **Open (5):** deepseek-v4-pro, qwen3.6-plus, glm-5.2, kimi-k3, nemotron-3-ultra-free
 - **Baseline (1):** deepseek-v4-flash
 
-### Results
+### Results (2026-08-16, 11/11 complete)
 
-*(Table + heatmap populate from `scripts/summarize_extreme.py` when the battery
-completes; the animated race in the README updates automatically.)*
+**Binary pass/fail saturated** — all 11 models produced responses on all 5 tests.
+The only binary signal: T4 code failed `py_compile` for claude-opus-5, glm-5.2 and
+deepseek-v4-flash. The discriminating signal is the automated rubric score (0–1;
+see `scripts/score_tests.py` for the exact checks; ∅ = no output returned):
+
+| Model | Family | T1 proof | T2 long-ctx | T3 lipogram | T4 code | T5 planning | Total |
+|:--|:--|:--:|:--:|:--:|:--:|:--:|:--:|
+| qwen3.6-plus | open | 0.80 | 1.00 | 0.70 | 1.00 | 0.90 | **0.88** |
+| claude-sonnet-4-6 | closed | 0.90 | 1.00 | 0.40 | 1.00 | 0.80 | 0.82 |
+| gpt-5.6-sol | closed | 0.70 | 1.00 | 0.90 | 1.00 | 0.50 | 0.82 |
+| grok-4.6 | closed | 0.80 | 1.00 | 0.40 | 1.00 | 0.90 | 0.82 |
+| kimi-k3 | open | 0.50 | 1.00 | 0.35 | 1.00 | 1.00 | 0.77 |
+| deepseek-v4-pro | open | 0.80 | 1.00 | 0.25 | 1.00 | 0.70 | 0.75 |
+| nemotron-3-ultra-free | open | 0.50 | 1.00 | 0.10 | 1.00 | 0.60 | 0.64 |
+| glm-5.2 | open | 1.00 | 1.00 | 0.10 | 0.00 | 0.90 | 0.60 |
+| deepseek-v4-flash | baseline | 0.80 | 1.00 | 0.10 | 0.00 | 1.00 | 0.58 |
+| claude-fable-5 | closed | ∅ | ∅ | 0.50 | 1.00 | 0.60 | 0.42 |
+| claude-opus-5 | closed | ∅ | 1.00 | 0.80 | 0.00 | 0.00 | 0.36 |
+
+<details>
+<summary>Watch the animated race (8s GIF)</summary>
+
+![extreme test race — per-model rubric totals](assets/extreme_race_animated.gif)
+
+</details>
+
+Observations:
+- **The lipogram test (no letter *e*) is the hardest**: best 0.90 (gpt-5.6-sol),
+  most models 0.10–0.40 — consistent with the known transformer weakness at
+  character-level constraints.
+- **Long-context recall saturated at 1.00** across the board at ~30K tokens — not a
+  differentiator at this size.
+- **Two flagship closed models returned empty outputs on the proof test (∅)**.
+  This is raw observed behavior (the API returned no content), not a quality
+  judgement — worth investigating whether the provider's reasoning-budget handling
+  is involved.
+- Latency varies 6.3× (37–231 s/test); qwen3.6-plus is slowest by far (19 min
+  total, 9.5 min on the lipogram test alone).
+- Output size varies 5.6× (14K–80K chars): reasoning-heavy models (deepseek-v4-pro)
+  burn tokens; gpt-5.6-sol reports no completion tokens via the Responses API
+  (usage-reporting quirk — token economics need dashboard verification).
 
 Reproduce:
 
 ```bash
 python3 scripts/extreme-test-runner.py                    # all 11 models
-python3 scripts/summarize_extreme.py                      # summary table + heatmap
-python3 scripts/make_animate.py                           # animated race GIF
+python3 scripts/score_tests.py                            # rubric scores + heatmap
+python3 scripts/summarize_extreme.py                      # summary table
+python3 scripts/make_animate.py                           # animated GIFs
 ```
 
 ## 4. Cost honesty
