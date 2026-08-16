@@ -79,10 +79,11 @@ python3 scripts/eval-report.py
 Task specs are pre-registered with `spec_hash` and `difficulty` — reproducibility
 without outcome-inferred labels.
 
-## Extreme Tests — frontier models under stress
+## Extreme Tests — who survives all five?
 
-Five hard tests, each designed to find a model's ceiling (rubrics in the
-`model-evaluation-protocol` methodology):
+The same 5 hard ceiling tests, run against **all 11 models: closed frontier, open
+weights, and the baseline** — so you can see the real gap, not the marketing gap.
+Full methodology and results in [RESEARCH.md](RESEARCH.md).
 
 | Test | What it stresses | Failure signature |
 |:--|:--|:--|
@@ -92,14 +93,38 @@ Five hard tests, each designed to find a model's ceiling (rubrics in the
 | T4 · Concurrent code | 7+ requirements, retry scheduler, syntax-verified | Missing features, non-runnable |
 | T5 · Agentic planning | Full-stack mission, fail conditions, confidence calibration | Vague phases, overconfidence |
 
+![animated race — models completing the five extreme tests](assets/extreme_race_animated.gif)
+
+**Models (by family):** closed = claude-opus-5, claude-fable-5, claude-sonnet-4-6,
+grok-4.6, gpt-5.6-sol · open = deepseek-v4-pro, qwen3.6-plus, glm-5.2, kimi-k3,
+nemotron-3-ultra-free · baseline = deepseek-v4-flash
+
+| Model | Family | T1 | T2 | T3 | T4 | T5 |
+|:--|:--|:--:|:--:|:--:|:--:|:--:|
+| claude-fable-5 | closed | ✅ | ✅ | ✅ | ✅ | ✅ |
+| claude-opus-5 | closed | ✅ | ✅ | ✅ | ⚠️ syntax | ✅ |
+| claude-sonnet-4-6 | closed | ✅ | ✅ | ✅ | ✅ | ✅ |
+| grok-4.6 | closed | ✅ | ✅ | ✅ | ✅ | ✅ |
+| gpt-5.6-sol | closed | ✅ | ✅ | ✅ | ✅ | ✅ |
+| deepseek-v4-pro | open | ✅ | ✅ | ✅ | ✅ | ✅ |
+| qwen3.6-plus | open | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ |
+| glm-5.2 | open | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ |
+| kimi-k3 | open | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ |
+| nemotron-3-ultra-free | open | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ |
+| deepseek-v4-flash | baseline | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ |
+
+*(Battery in progress — 6/11 complete. The table, heatmap and race GIF refresh from
+`scripts/summarize_extreme.py` + `scripts/make_animate.py` when it finishes.)*
+
 ![extreme test heatmap — 11 frontier models across 5 ceiling tests](assets/extreme_test_heatmap.png)
 
-*(Heatmap populates when the current 11-model battery completes — `scripts/summarize_extreme.py`.)*
+Pre-flight findings (2026-08, `price-probe.py`): providers list models that aren't
+callable — all Claude-family endpoints rejected the `temperature` parameter
+(deprecated), GPT-family required the Responses API, and a Gemini endpoint was down
+entirely. The probe catches this before you waste a battery.
 
-Pre-flight findings (2026-08): providers list models that aren't callable — all
-Claude-family endpoints rejected the `temperature` parameter (deprecated), GPT-family
-required the Responses API, and a Gemini endpoint was down entirely.
-`scripts/price-probe.py` catches this before you waste a battery.
+See [RESEARCH.md](RESEARCH.md) for the full research: probe findings, the real-task
+battery comparison (stronger model ≠ better agent loop), and methodology.
 
 ## Architecture (L0–L3)
 
@@ -139,8 +164,10 @@ scripts/
   extreme-test-runner.py   5-test ceiling battery (direct API, multi-provider)
   summarize_extreme.py     battery results → summary table + heatmap
   make_assets.py           regenerate the dark-theme visuals
-assets/                    original visuals (regenerable via make_assets.py)
+  make_animate.py          regenerate the animated GIFs (logo intro + race)
+assets/                    original visuals: static charts + animated GIFs
 reports/                   generated reports
+RESEARCH.md                probe findings, model batteries, methodology
 ```
 
 ## Limitations
