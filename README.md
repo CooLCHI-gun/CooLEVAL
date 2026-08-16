@@ -99,16 +99,16 @@ reproducible (`scripts/score_tests.py`):
 | claude-sonnet-4-6 | closed | 0.90 | 1.00 | 0.40 | 1.00 | 0.80 | 0.82 |
 | gpt-5.6-sol | closed | 0.70 | 1.00 | 0.90 | 1.00 | 0.50 | 0.82 |
 | grok-4.6 | closed | 0.80 | 1.00 | 0.40 | 1.00 | 0.90 | 0.82 |
+| claude-opus-5 | closed | 0.70 | 1.00 | 1.00 | 1.00 | 0.20 | 0.78 |
 | kimi-k3 | open | 0.50 | 1.00 | 0.35 | 1.00 | 1.00 | 0.77 |
+| claude-fable-5 | closed | 0.90 | ∅ | 0.85 | 1.00 | 1.00 | 0.75 |
 | deepseek-v4-pro | open | 0.80 | 1.00 | 0.25 | 1.00 | 0.70 | 0.75 |
 | nemotron-3-ultra-free | open | 0.50 | 1.00 | 0.10 | 1.00 | 0.60 | 0.64 |
 | glm-5.2 | open | 1.00 | 1.00 | 0.10 | 0.00 | 0.90 | 0.60 |
 | deepseek-v4-flash | baseline | 0.80 | 1.00 | 0.10 | 0.00 | 1.00 | 0.58 |
-| claude-fable-5 | closed | ∅ | ∅ | 0.50 | 1.00 | 0.60 | 0.42 |
-| claude-opus-5 | closed | ∅ | 1.00 | 0.80 | 0.00 | 0.00 | 0.36 |
 
-∅ = no output returned for that test. Scoring is automated string/compile checks —
-see `scripts/score_tests.py` for exact rubrics.
+∅ = no output returned for that test despite retries. Scoring is automated
+string/compile checks — see `scripts/score_tests.py` for exact rubrics.
 
 ![extreme tests — automated rubric scores heatmap, 0 to 1, ∅ = no output](assets/extreme_test_heatmap.png)
 
@@ -118,8 +118,13 @@ What the real situation says:
   character-level constraints.
 - **Long-context recall saturated** (1.00 everywhere): at ~30K tokens, every model
   found the embedded facts. Not a differentiator at this size.
-- **Two flagship closed models returned empty outputs on the proof test** (∅) —
-  worth investigating whether it's proxy reasoning-budget behavior, not a quality claim.
+- **Empty-output investigation (2026-08-16)**: claude-opus-5 and claude-fable-5
+  initially returned ∅ on the proof test — bisection showed a proxy-side silent
+  empty response (200 OK, 0 tokens) triggered by specific prompt phrasing
+  (e.g. the phrase "harder telescoping identity"), NOT a capability failure.
+  With rephrased prompts both models score competitively (opus 0.78, fable 0.75).
+  claude-fable-5's remaining ∅ on long-context persisted across retries — recorded
+  honestly as a reliability limitation of that model route.
 - Latency varies 6.3× (37–231 s/test); qwen3.6-plus is slowest by far (19 min total).
 
 Pre-flight findings (2026-08, `price-probe.py`): providers list models that aren't

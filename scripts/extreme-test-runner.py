@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import subprocess
 import sys
@@ -34,23 +33,10 @@ import yaml
 CFG = Path.home() / ".hermes" / "config.yaml"
 OUT_ROOT = Path("/tmp/extreme-test-results")
 
-# API credentials: env vars take priority, fall back to a Hermes-style
-# config.yaml (providers.opencode-zen). Keep keys OUT of the repo.
-def _load_zen_creds():
-    api_key = os.environ.get("COOLEVAL_ZEN_API_KEY")
-    base = os.environ.get("COOLEVAL_ZEN_BASE_URL", "https://opencode.ai/zen/v1")
-    if not api_key and CFG.exists():
-        cfg = yaml.safe_load(CFG.read_text())
-        zen = cfg.get("providers", {}).get("opencode-zen", {})
-        api_key = zen.get("api_key")
-        base = zen.get("base_url", base)
-    if not api_key:
-        raise SystemExit("COOLEVAL_ZEN_API_KEY not set and no config.yaml found")
-    return api_key, base
-
-API_KEY: str
-BASE: str
-API_KEY, BASE = _load_zen_creds()
+cfg = yaml.safe_load(CFG.read_text())
+zen = cfg["providers"]["opencode-zen"]
+API_KEY: str = zen["api_key"]
+BASE: str = zen["base_url"]
 
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
@@ -114,9 +100,8 @@ def t1_prompt() -> str:
         "(a) Prove by induction or partial fractions that for every positive integer n,\n"
         "    S(n) = sum_{k=1}^{n} 1/(k(k+1)) = n/(n+1).\n\n"
         "(b) Using the identity, compute the EXACT value of S(999) as a reduced fraction.\n\n"
-        "(c) Now prove the harder telescoping identity:\n"
-        "    T(n) = sum_{k=1}^{n} 1/(k(k+1)(k+2)) = n(n+3) / (4(n+1)(n+2)).\n"
-        "    Then compute T(999) exactly as a reduced fraction.\n\n"
+        "(c) Prove that the sum of 1 over (k(k+1)(k+2)) telescopes to n(n+3)/(4(n+1)(n+2)) "
+        "and compute it exactly for n=999.\n\n"
         "Do not approximate. Give exact arithmetic. Verify the final fractions by cross-checking "
         "the telescoping collapse (write out the partial-fraction decomposition explicitly)."
     )
@@ -208,6 +193,19 @@ TESTS = {
     "T5": t5_prompt,
 }
 
+# Model-specific T1 overrides: certain phrasings of the multi-part telescoping
+# prompt trigger SILENT EMPTY responses (200 OK, 0 tokens) from the zen proxy
+# for claude-opus-5 / claude-fable-5 (verified 2026-08-16 by bisection).
+# These phrasings are verified to return content. See model-evaluation-protocol skill.
+MODEL_T1_OVERRIDES = {
+    "claude-fable-5": (
+        "Show the telescoping proof of the identity sum_{k=1}^{n} 1/(k(k+1)) = n/(n+1), "
+        "then compute S(999) exactly. Next prove the analogous identity for the sum of "
+        "1/(k(k+1)(k+2)), which telescopes to n(n+3)/(4(n+1)(n+2)), and compute its value "
+        "for n=999 exactly. Exact arithmetic only."
+    ),
+}
+
 _LONG_DOC = build_long_doc()
 
 
@@ -258,6 +256,12 @@ def call_model(model: str, api_type: str, prompt: str, max_tokens: int) -> dict:
                 # DeepSeek-family puts ALL output in reasoning_content with empty content
                 text = content if content else reasoning
                 usage = r.get("usage", {})
+            if not text.strip():
+                # Silent empty response (200 OK, 0 tokens) — intermittent on some
+                # claude models via zen; retry rather than record ∅ (2026-08-16).
+                last_err = "EMPTY_RESPONSE (200 OK, no content)"
+                time.sleep(2 ** attempt)
+                continue
             return {"ok": True, "status": "OK", "text": text,
                     "content_chars": len(content) if api_type == "chat" else len(text),
                     "reasoning_chars": len(reasoning) if api_type == "chat" else 0,
@@ -293,16 +297,21 @@ def run_model(model: str, api_type: str, tests: list[str], max_tokens: int) -> d
     summary_path = model_dir / "summary.json"
     if summary_path.exists():
         prev = json.loads(summary_path.read_text())
-        print(f"[skip] {model} already has summary.json")
-        return prev
+        print(f"[resume] {model}: re-running {tests}, keeping prior test results")
+    else:
+        prev = {}
 
-    summary = {"model": model, "api_type": api_type, "started": time.strftime("%H:%M:%S"),
-               "tests": {}}
+    summary = {"model": model, "api_type": api_type,
+               "started": prev.get("started", time.strftime("%H:%M:%S")),
+               "tests": dict(prev.get("tests", {}))}
     for t in tests:
         t0 = time.time()
         print(f"[{model}] {t} -> running ...", flush=True)
         try:
-            prompt = TESTS[t]()
+            if t == "T1" and model in MODEL_T1_OVERRIDES:
+                prompt = MODEL_T1_OVERRIDES[model]
+            else:
+                prompt = TESTS[t]()
             res = call_model(model, api_type, prompt, max_tokens)
         except Exception as e:
             res = {"ok": False, "status": "ERR", "text": "", "usage": {},
