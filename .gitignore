@@ -15,3 +15,5 @@ reports/price-probe-*.json
 .DS_Store
 reports/memory-eval/
 reports/memory-eval-full/
+reports/*.md
+reports/cooleval-weekly.log
