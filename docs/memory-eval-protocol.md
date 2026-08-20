@@ -8,7 +8,6 @@ This module adds a memory-system comparison battery to CooLEVAL: empirically com
 
 - `UHMAProvider` (S1) — Hermes UHMA warm tier: SQLite `warm_facts` + FTS5(unicode61), with per-keyword LIKE + CJK 2/3-char decomposition fallback. Local, zero API, ~ms recall.
 - `HolographicProvider` (S2) — Hermes holographic plugin: FTS5 + Jaccard + HRR hybrid on a throwaway store (seeded via `add_fact`).
-- `OpenVikingProvider` (S3) — HTTP client to a local openviking-server; gated (server-down trace if not running).
 
 ## Run
 

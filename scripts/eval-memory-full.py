@@ -198,7 +198,7 @@ def score_det(provider_name, chunks, targets):
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--providers", default="uhma,holographic",
-                    help="comma-separated (uhma, holographic, openviking)")
+                    help="comma-separated (uhma, holographic)")
     ap.add_argument("--facts", type=int, default=60)
     ap.add_argument("--reps", type=int, default=3, help="cross-session reps")
     ap.add_argument("--llm", action="store_true", help="enable LLM judge for under-class")
@@ -243,8 +243,8 @@ def main() -> None:
                                              os.path.join(td, f"{pname}-r{rep}.db"))
                 elif pname == "uhma":
                     p = build_throwaway_uhma(corpus, distractors, td)
-                else:  # openviking: server-gated, no seeding
-                    p = get_provider(pname)
+                else:
+                    raise ValueError(f"unsupported provider: {pname}")
                 for qid, amb, q, targets in queries:
                     r = p.pre_llm_retrieve(q)
                     if amb == "under" and a.llm:

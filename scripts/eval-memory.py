@@ -4,7 +4,6 @@
 Usage:
   python3 eval-memory.py --provider uhma            # one provider battery
   python3 eval-memory.py --provider uhma --tasks T1 T3 --reps 2
-  python3 eval-memory.py --provider openviking       # server-down -> empty traces
 
 Emits JSONL to reports/memory-eval/ per the Phase 1 protocol record schema.
 Read-only against UHMA; rules-based recall scoring (no LLM judge needed for

@@ -219,12 +219,6 @@ The classes separate the backends sharply and in *opposite directions*: UHMA win
 clean recall (single/multi) but collapses under distractor noise, where Holographic
 holds 90%. Neither backend is a general winner — the failure modes are the finding.
 
-### OpenViking — gated, not deployed
-
-The OpenViking provider class ships in the tree but is **not deployed**: a 1.2 GB
-install plus heavy dependencies is indefensible on the 4 GB reference box. It runs
-gated and emits a server-down trace so evals fail loud rather than silently skip.
-
 ### Caveats
 
 - Corpus is **synthetic/constructed**, not production telemetry.
@@ -285,7 +279,7 @@ scripts/
   extreme-test-runner.py   5-test ceiling battery (direct API, multi-provider)
   score_tests.py           automated rubric scoring + heatmap
   summarize_extreme.py     battery results → summary table
-  memory_provider.py       MemoryProvider ABC + UHMA (S1) / Holographic (S2) / OpenViking (S3)
+  memory_provider.py       MemoryProvider ABC + UHMA (S1) / Holographic (S2)
   eval-memory.py           RAM-guarded memory-eval task runner (T1-T10, protocol JSONL)
   bench_s1s2.py            controlled same-corpus UHMA-vs-Holographic memory comparison
   memory_health_report.py  memory-recall health report (aggregate-only, Wilson CI, rolling windows)
@@ -318,7 +312,7 @@ docs/
 - [x] ETL + metrics + dogfood battery (artifact-verified)
 - [x] Extreme ceiling battery (5 tests, direct API, multi-provider)
 - [x] Automated rubric scoring (0–1 per test, reproducible)
-- [x] Memory-backend comparison battery (UHMA / Holographic / OpenViking, see docs/)
+- [x] Memory-backend comparison battery (UHMA / Holographic, see docs/)
 - [x] Semantic validation of artifacts (tiered deterministic content checks)
 - [x] Token-efficiency metric (tokens-per-success, cache-adjusted)
 - [x] Full memory benchmark (ambiguous/noisy queries, cross-session decay, N≥150)

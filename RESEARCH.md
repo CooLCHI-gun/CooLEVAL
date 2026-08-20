@@ -149,14 +149,6 @@ winner to declare at this corpus size. That is exactly why the full benchmark
 (discriminating queries, ambiguous/noisy inputs, cross-session decay, N≥150)
 is open work, not a finished claim.
 
-**A third backend is intentionally not deployed.** `OpenVikingProvider`
-implements the viking:// client, but a feasibility probe showed the full
-openviking-server needs ~1.2 GB of install + a heavy dependency tree (scrapy,
-litellm, tree-sitter×11 languages, volcengine SDK) — indefensible as an
-always-on memory tier on a 4 GB box already using swap. The provider class is
-shipped and gated: when no server is reachable it returns an empty recall with
-a `server-down` trace, so a battery against it fails loudly instead of lying.
-
 **Methodology guardrails:** each provider is scored on the SAME ground-truth
 queries; success = a ground-truth keyword appears in a recalled chunk; latency
 is per-query wall-clock. N-gate + Wilson CI apply as elsewhere. The live

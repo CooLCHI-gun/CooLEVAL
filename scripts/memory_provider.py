@@ -2,7 +2,6 @@
 
 Abstract MemoryProvider + implementations:
   - UHMAProvider (S1): reads Hermes UHMA warm tier (memory-unified.db) FTS5+LIKECJK.
-  - OpenVikingProvider (S3): HTTP client to a local openviking-server (viking://).
   - HolographicProvider (S2): declared, unavailable until holographic package present.
 
 Read-only w.r.t. production Hermes: UHMA provider only SELECTs.
@@ -129,39 +128,6 @@ class UHMAProvider(MemoryProvider):
                             "uhma " + "; ".join(dict.fromkeys(steps)))
 
 
-class OpenVikingProvider(MemoryProvider):
-    """S3 — openviking-server via its HTTP/REST bridge (viking://).
-
-    Gated: if the server is not reachable, every recall returns [] with a
-    trace marking it "server-down". The full benchmark is disabled until a
-    server is running (RAM/ops heavy — see plan Phase 4 risks).
-    """
-
-    name = "openviking"
-
-    def __init__(self, base: str = "http://127.0.0.1:1933", api_key: str = ""):
-        self.base = base.rstrip("/")
-        self.api_key = api_key
-
-    def _get(self, path: str):
-        req = urllib.request.Request(self.base + path)
-        if self.api_key:
-            req.add_header("Authorization", "Bearer " + self.api_key)
-        with urllib.request.urlopen(req, timeout=5) as r:
-            return json.loads(r.read().decode())
-
-    def pre_llm_retrieve(self, query: str) -> RecallResult:
-        try:
-            data = self._get("/search?q=" + urllib.parse.quote(query))
-            chunks = [MemoryChunk(item.get("text", ""), item.get("uri", ""),
-                                  float(item.get("score", 0.0) or 0),
-                                  f"viking://{item.get('uri','')}")
-                      for item in (data.get("results", []))]
-            return RecallResult(self.name, query, chunks, 0.0, "openviking /search")
-        except Exception as e:  # noqa: BLE001 — gate failure is expected when down
-            return RecallResult(self.name, query, [], 0.0, f"openviking server-down ({e})")
-
-
 class HolographicProvider(MemoryProvider):
     """S2 — lightweight local SQLite provider (Hermes holographic plugin).
 
@@ -211,5 +177,4 @@ class HolographicProvider(MemoryProvider):
 
 def get_provider(name: str) -> MemoryProvider:
     return {"uhma": UHMAProvider,
-            "openviking": OpenVikingProvider,
             "holographic": HolographicProvider}[name]()
