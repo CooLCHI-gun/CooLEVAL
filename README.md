@@ -173,6 +173,7 @@ scripts/
   bench_s1s2.py            controlled same-corpus UHMA-vs-Holographic memory comparison
   memory_health_report.py  memory-recall health report (aggregate-only, Wilson CI, rolling windows)
   eval-tokeneff.py         token-efficiency metric (cache-adjusted tokens-per-success)
+  eval-memory-full.py      discriminating memory benchmark (N>=150, query taxonomy + cross-session decay)
   make_assets.py           regenerate static visuals (dark + light themes)
   make_animate.py          regenerate animated GIFs + logo
 assets/                    original visuals (static, animated, logo.svg)
@@ -198,7 +199,7 @@ docs/
 - [x] Memory-backend comparison battery (UHMA / Holographic / OpenViking, see docs/)
 - [x] Semantic validation of artifacts (tiered deterministic content checks)
 - [x] Token-efficiency metric (tokens-per-success, cache-adjusted)
-- [ ] Full memory benchmark (ambiguous/noisy queries, cross-session decay, N≥150)
+- [x] Full memory benchmark (ambiguous/noisy queries, cross-session decay, N≥150)
 - [ ] Weekly scheduled reports
 
 ## License
