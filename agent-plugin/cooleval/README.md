@@ -35,7 +35,7 @@ python3 scripts/eval-etl.py            # build YOUR eval.db from YOUR telemetry
 # tell the plugin where your local db is:
 export EVAL_DB="$PWD/eval.db"
 # register the plugin (Hermes):
-mkdir -p ~/.hermes/plugins && cp -r agent-plugin/cooleval ~/.hermes/plugins/
+mkdir -p "${HERMES_HOME:-$HOME/.hermes}/plugins" && cp -r agent-plugin/cooleval "${HERMES_HOME:-$HOME/.hermes}/plugins/"
 hermes plugins enable cooleval          # then restart/next session
 ```
 

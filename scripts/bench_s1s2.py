@@ -13,9 +13,11 @@ import importlib.util
 import os
 import sys
 import tempfile
+from pathlib import Path
 
-HERMES_SRC = "/root/hermes-agent-source"
-sys.path.insert(0, HERMES_SRC)
+HERMES_SRC = os.environ.get("HERMES_SRC", "")
+if HERMES_SRC:
+    sys.path.insert(0, HERMES_SRC)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from memory_provider import UHMAProvider, HolographicProvider  # noqa: E402
@@ -50,7 +52,7 @@ def score(kws, chunks):
 
 def build_uhma(temp_db):
     spec = importlib.util.spec_from_file_location(
-        "mu", os.path.expanduser("~/.hermes/scripts/memory-unified.py"))
+        "mu", os.environ.get("HERMES_MEM_UNIFIED_PY", str(Path(__file__).resolve().parent.parent / "scripts" / "memory-unified.py")))
     mu = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mu)
     mu.DB_PATH = temp_db

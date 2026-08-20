@@ -5,7 +5,7 @@
 2. extreme_race_animated.gif   — intro (logo) → model 分數條 race（closed/open/baseline 分色）
 
 用法：python3 make_animate.py [results_dir]
-結果：/root/workspace/CooLEVAL/assets/*.gif
+結果：assets/*.gif（repo 內，由 make_assets 生成）
 """
 from __future__ import annotations
 

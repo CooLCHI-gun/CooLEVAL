@@ -41,8 +41,7 @@ import sqlite3
 import sys
 from pathlib import Path
 
-EVAL_DB = str(Path(os.environ.get("EVAL_DB", str(Path.home() / ".hermes" /
-                                                 "data" / "hermes-eval.db"))))
+EVAL_DB = os.environ.get("EVAL_DB", str(Path(__file__).resolve().parent.parent / "data" / "eval.db"))
 
 # Default per-1M-token prices (USD). Shape mirrors the common
 # output-3-5x-input, cache-0.1x-input discount. Override with --price.

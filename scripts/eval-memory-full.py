@@ -123,7 +123,7 @@ def build_throwaway_uhma(corpus, distractors, parent_tmp):
     from memory_provider import UHMAProvider
     db_path = os.path.join(parent_tmp, "uhma.db")
     spec = importlib.util.spec_from_file_location(
-        "mu", os.path.expanduser("~/.hermes/scripts/memory-unified.py"))
+        "mu", os.environ.get("HERMES_MEM_UNIFIED_PY", str(Path(__file__).resolve().parent.parent / "scripts" / "memory-unified.py")))
     mu = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mu)
     mu.DB_PATH = db_path

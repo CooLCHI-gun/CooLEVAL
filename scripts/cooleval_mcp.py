@@ -15,7 +15,7 @@ Security / design:
     doesn't over-read a small sample.
 
 Data paths (overridable):
-  EVAL_DB  -> the CooLEVAL eval SQLite db (default ~/.hermes/data/hermes-eval.db)
+  EVAL_DB  -> the CooLEVAL eval SQLite db (default ./data/eval.db, override via EVAL_DB)
   EVAL_REPORTS -> reports/ dir containing memory-eval-full/*.jsonl
 
 Tools:

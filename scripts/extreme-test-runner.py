@@ -29,8 +29,9 @@ import urllib.request
 from pathlib import Path
 
 import yaml
+import os
 
-CFG = Path.home() / ".hermes" / "config.yaml"
+CFG = Path(os.environ.get("HERMES_CONFIG", str(Path(__file__).resolve().parent.parent / "data" / "hermes-config.yaml")))
 OUT_ROOT = Path("/tmp/extreme-test-results")
 
 cfg = yaml.safe_load(CFG.read_text())

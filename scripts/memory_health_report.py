@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Memory-recall health report (CooLEVAL #1 — Sonar MF1/MF2).
 
-Aggregates the UHMA observable-retrieval trace log (~/.hermes/cognitive/
-uhma-retrieval-trace.log, one JSON line per pre_llm_call turn) into an
+Aggregates the UHMA observable-retrieval trace log (default ./data/uhma-retrieval-trace.log,
+override via HERMES_TRACES_LOG; one JSON line per pre_llm_call turn) into an
 OPERATIONAL DIAGNOSTIC report. PRIVACY: outputs AGGREGATE COUNTS ONLY — never
 raw keywords, fact ids, or content. PRIVACY guardrail (Sonar MF2): if you need
 the report committed to a public repo, ensure only this aggregate output is
@@ -28,8 +28,9 @@ import os
 import sys
 from collections import deque
 from datetime import datetime
+from pathlib import Path
 
-TRACE_LOG = os.path.expanduser("~/.hermes/cognitive/uhma-retrieval-trace.log")
+TRACE_LOG = os.environ.get("HERMES_TRACES_LOG", str(Path(__file__).resolve().parent.parent / "data" / "uhma-retrieval-trace.log"))
 N_GATE = 20
 
 

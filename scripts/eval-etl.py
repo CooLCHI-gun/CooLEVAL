@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """eval-etl.py — Phase A: idempotent ETL for Agent Eval Framework.
 
-Aggregates three raw sources into ~/.hermes/data/hermes-eval.db:
+Aggregates three raw sources into a local eval DB (default ./data/eval.db;
+sources overridable via HERMES_STATE_DB / HERMES_MEM_DB / HERMES_TRACES):
   1. memory-unified.db  agent_lifecycle  -> task_events
   2. traces.jsonl (span-tracer)          -> span_metrics
   3. state.db sessions                   -> session-level enrichment (model tier)
@@ -24,17 +25,18 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import sqlite3
 import sys
 import time
 from pathlib import Path
 
-HOME = Path.home()
-EVAL_DB = HOME / ".hermes" / "data" / "hermes-eval.db"
-MEM_DB = HOME / ".hermes" / "memory-unified.db"
-STATE_DB = HOME / ".hermes" / "state.db"
-TRACE_FILE = HOME / ".hermes" / "data" / "traces.jsonl"
-TRACE_OLD = HOME / ".hermes" / "data" / "traces.jsonl.old"
+_DATA = Path(os.environ.get("COOLEVAL_DATA", str(Path(__file__).resolve().parent.parent / "data")))
+EVAL_DB = Path(os.environ.get("EVAL_DB", str(_DATA / "eval.db")))
+MEM_DB = Path(os.environ.get("HERMES_MEM_DB", str(_DATA / "memory-unified.db")))
+STATE_DB = Path(os.environ.get("HERMES_STATE_DB", str(_DATA / "state.db")))
+TRACE_FILE = Path(os.environ.get("HERMES_TRACES", str(_DATA / "traces.jsonl")))
+TRACE_OLD = Path(os.environ.get("HERMES_TRACES_OLD", str(_DATA / "traces.jsonl.old")))
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS task_events (

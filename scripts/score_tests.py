@@ -234,7 +234,7 @@ def main() -> int:
         for s in ax.spines.values():
             s.set_visible(False)
         fig.tight_layout()
-        out_png = Path("/root/workspace/CooLEVAL/assets/extreme_test_heatmap.png")
+        out_png = Path(__file__).resolve().parent.parent / "assets" / "extreme_test_heatmap.png"
         fig.savefig(out_png, bbox_inches="tight")
         print(f"saved -> {out_png}")
     except ImportError:

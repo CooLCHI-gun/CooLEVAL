@@ -27,8 +27,9 @@ from datetime import datetime, timezone
 from starlette.applications import Starlette
 from starlette.responses import JSONResponse
 from starlette.routing import Route
+from pathlib import Path
 
-DB_PATH = os.path.expanduser("~/.hermes/data/hermes-eval.db")
+DB_PATH = os.environ.get("EVAL_DB", str(Path(__file__).resolve().parent.parent / "data" / "eval.db"))
 
 
 def _db() -> sqlite3.Connection:

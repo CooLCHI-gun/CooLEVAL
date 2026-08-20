@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """eval-metrics.py — Phase B: core reliability metrics for Agent Eval Framework.
 
-Reads ~/.hermes/data/hermes-eval.db (populated by eval-etl.py) and computes:
+Reads the CooLEVAL eval DB (default ./data/eval.db, override via EVAL_DB; populated by eval-etl.py) and computes:
 
   1. Task success rate (completed / resolved), with failure_class breakdown
   2. 50% time horizon (METR 2503.14499): longest duration bucket with >=50% success
@@ -29,8 +29,9 @@ import sqlite3
 import sys
 from pathlib import Path
 from collections import Counter
+import os
 
-EVAL_DB = Path.home() / ".hermes" / "data" / "hermes-eval.db"
+EVAL_DB = Path(os.environ.get("EVAL_DB", str(Path(__file__).resolve().parent.parent / "data" / "eval.db")))
 
 # Pre-registered duration buckets (hours) — Sonar must-fix 2: fixed rule,
 # NOT chosen post-hoc from the data.
@@ -170,7 +171,7 @@ def loopiness(con: sqlite3.Connection, window_s: float = 60.0) -> list[dict]:
 # level, using the same success definition as rsi-scoreboard (end_reason in
 # agent_close/cli_close/cron_complete).
 SESSION_SUCCESS_REASONS = {"agent_close", "cli_close", "cron_complete"}
-STATE_DB = Path.home() / ".hermes" / "state.db"
+STATE_DB = Path(os.environ.get("HERMES_STATE_DB", str(Path(__file__).resolve().parent.parent / "data" / "state.db")))
 
 # Battery one-shot sessions must be EXCLUDED from session-level reliability
 # analysis: they are synthetic eval runs (all <15m, mostly successful), so they

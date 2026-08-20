@@ -16,11 +16,12 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+import os
 
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS = ROOT / "scripts"
 REPORTS = ROOT / "reports"
-EVAL_DB = Path.home() / ".hermes" / "data" / "hermes-eval.db"
+EVAL_DB = Path(os.environ.get("EVAL_DB", str(Path(__file__).resolve().parent.parent / "data" / "eval.db")))
 
 
 def run_script(name: str) -> str:

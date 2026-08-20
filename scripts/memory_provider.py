@@ -14,8 +14,9 @@ import sqlite3
 import urllib.request
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from pathlib import Path
 
-DB_PATH = os.path.expanduser("~/.hermes/memory-unified.db")
+DB_PATH = os.environ.get("HERMES_MEM_DB", str(Path(__file__).resolve().parent.parent / "data" / "memory-unified.db"))
 
 
 @dataclass
@@ -139,7 +140,7 @@ class HolographicProvider(MemoryProvider):
 
     def __init__(self, db_path: str | None = None):
         self.db_path = db_path or os.path.join(
-            os.path.expanduser("~/.hermes"), "memory-eval-holo.db")
+            str(Path(__file__).resolve().parent.parent / "data"), "memory-eval-holo.db")
         try:
             from plugins.memory.holographic.store import MemoryStore
             from plugins.memory.holographic.retrieval import FactRetriever

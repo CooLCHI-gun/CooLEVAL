@@ -2,7 +2,7 @@
 """summarize_extreme.py — 讀 /tmp/extreme-test-results/*/summary.json，
 輸出：per-model × per-test 狀態表 + 統計 + extreme heatmap PNG。
 
-用法：python3 summarize_extreme.py [results_dir] [--out /root/workspace/CooLEVAL/assets]
+用法：python3 summarize_extreme.py [results_dir] [--out <repo>/assets]
 """
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ def wilson_ok(entry) -> bool:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("results", nargs="?", default=str(RESULTS))
-    ap.add_argument("--out", default="/root/workspace/CooLEVAL/assets")
+    ap.add_argument("--out", default=str(Path(__file__).resolve().parent.parent / "assets"))
     args = ap.parse_args()
 
     root = Path(args.results)

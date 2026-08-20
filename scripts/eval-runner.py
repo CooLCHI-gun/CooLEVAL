@@ -31,7 +31,7 @@ import sys
 import time
 from pathlib import Path
 
-EVAL_DB = Path(os.environ.get("EVAL_DB", str(Path.home() / ".hermes" / "data" / "hermes-eval.db")))
+EVAL_DB = Path(os.environ.get("EVAL_DB", str(Path(__file__).resolve().parent.parent / "data" / "eval.db")))
 OUT_ROOT = Path(os.environ.get("EVAL_OUT", "/tmp/eval-battery-out"))
 EVAL_ROOT = os.environ.get("EVAL_ROOT", str(Path(__file__).resolve().parent.parent))
 

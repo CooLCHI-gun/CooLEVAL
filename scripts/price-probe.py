@@ -23,7 +23,7 @@ from pathlib import Path
 
 import yaml
 
-CFG = Path.home() / ".hermes" / "config.yaml"
+CFG = Path(os.environ.get("HERMES_CONFIG", str(Path(__file__).resolve().parent.parent / "data" / "hermes-config.yaml")))
 OUT = Path(os.environ.get("COOLEVAL_OUT",
                          str(Path(__file__).resolve().parent.parent / "reports"
                              / "price-probe.json")))

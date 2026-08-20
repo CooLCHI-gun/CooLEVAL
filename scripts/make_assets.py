@@ -60,7 +60,7 @@ def render_all(theme: str):
     if theme == "dark":
         logo()
 
-OUT = Path("/root/workspace/CooLEVAL/assets")
+OUT = Path(__file__).resolve().parent.parent / "assets"
 OUT.mkdir(parents=True, exist_ok=True)
 
 plt.rcParams.update({
