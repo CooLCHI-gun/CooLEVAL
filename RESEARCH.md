@@ -123,7 +123,47 @@ python3 scripts/summarize_extreme.py                      # summary table
 python3 scripts/make_animate.py                           # animated GIFs
 ```
 
-## 4. Cost honesty
+## 4. Memory-backend evaluation (2026-08-20, `eval-memory.py` + `bench_s1s2.py`)
+
+CooLEVAL measures more than models — it measures the memory/context layer a
+model reads from. Two complementary instruments, both local (zero API cost):
+
+- `bench_s1s2.py` — controlled head-to-head on an IDENTICAL 8-fact seeded
+  corpus: UHMA (Hermes warm tier, FTS5 + per-keyword LIKE + CJK decomposition)
+  vs the Holographic plugin (FTS5 + Jaccard + HRR). Both read-only throwaway
+  stores under /tmp; no production telemetry touched.
+- `eval-memory.py` — the Phase-1 protocol runner over the live production
+  memory store, per-task-category recall + RAM guardrail (aborts if free RAM
+  falls below a floor, so the benchmark can never push a tight box into swap).
+
+**Controlled head-to-head (identical corpus, verified live):**
+
+| Backend | Recall | Latency range |
+|---|---:|---:|
+| UHMA (S1) | 8/8 (100%) | 1.6–7.1 ms |
+| Holographic (S2) | 8/8 (100%) | 2.4–5.3 ms |
+
+**This is a saturated result, honestly labelled.** On 8 clean single-target
+facts both backends recall everything at single-digit-ms latency — there is no
+winner to declare at this corpus size. That is exactly why the full benchmark
+(discriminating queries, ambiguous/noisy inputs, cross-session decay, N≥150)
+is open work, not a finished claim.
+
+**A third backend is intentionally not deployed.** `OpenVikingProvider`
+implements the viking:// client, but a feasibility probe showed the full
+openviking-server needs ~1.2 GB of install + a heavy dependency tree (scrapy,
+litellm, tree-sitter×11 languages, volcengine SDK) — indefensible as an
+always-on memory tier on a 4 GB box already using swap. The provider class is
+shipped and gated: when no server is reachable it returns an empty recall with
+a `server-down` trace, so a battery against it fails loudly instead of lying.
+
+**Methodology guardrails:** each provider is scored on the SAME ground-truth
+queries; success = a ground-truth keyword appears in a recalled chunk; latency
+is per-query wall-clock. N-gate + Wilson CI apply as elsewhere. The live
+`eval-memory.py` recall on the real (thin) production corpus is LOW — that is
+an honest observation about a sparse warm tier, not a backend-quality verdict.
+
+## 5. Cost honesty
 
 - Provider APIs frequently do not report cost (`cost_status: unknown`); accurate
   billing must be read from the provider dashboard, not the API.

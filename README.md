@@ -171,6 +171,8 @@ scripts/
   memory_provider.py       MemoryProvider ABC + UHMA (S1) / Holographic (S2) / OpenViking (S3)
   eval-memory.py           RAM-guarded memory-eval task runner (T1-T10, protocol JSONL)
   bench_s1s2.py            controlled same-corpus UHMA-vs-Holographic memory comparison
+  memory_health_report.py  memory-recall health report (aggregate-only, Wilson CI, rolling windows)
+  eval-tokeneff.py         token-efficiency metric (cache-adjusted tokens-per-success)
   make_assets.py           regenerate static visuals (dark + light themes)
   make_animate.py          regenerate animated GIFs + logo
 assets/                    original visuals (static, animated, logo.svg)
@@ -194,8 +196,9 @@ docs/
 - [x] Extreme ceiling battery (5 tests, direct API, multi-provider)
 - [x] Automated rubric scoring (0–1 per test, reproducible)
 - [x] Memory-backend comparison battery (UHMA / Holographic / OpenViking, see docs/)
-- [ ] Semantic validation of artifacts (beyond exists-and-non-empty)
-- [ ] Token-efficiency metric (tokens-per-success, cache-adjusted)
+- [x] Semantic validation of artifacts (tiered deterministic content checks)
+- [x] Token-efficiency metric (tokens-per-success, cache-adjusted)
+- [ ] Full memory benchmark (ambiguous/noisy queries, cross-session decay, N≥150)
 - [ ] Weekly scheduled reports
 
 ## License
