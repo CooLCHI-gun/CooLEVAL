@@ -1,0 +1,6 @@
+name: cooleval
+version: 1.0.0
+description: "Hermes plugin that lets an agent read CooLEVAL eval results locally (self-hosted, read-only SQLite)."
+author: "CooLCHI-gun"
+hooks:
+  - pre_tool_call

@@ -96,15 +96,19 @@ without outcome-inferred labels.
 ### Use it as an MCP server (agents)
 
 Query CooLEVAL's measured results from another agent via a read-only MCP server
-(`scripts/cooleval_mcp.py`, wraps the eval SQLite DB — SELECT-only, no heavy deps):
+(`scripts/cooleval_mcp.py`, wraps a local SQLite eval DB — SELECT-only, no heavy
+deps). **This server is self-hosted:** it reads whatever local `eval.db` you build
+(your own `scripts/eval-etl.py` output) and pointed `EVAL_DB` at. It makes
+no network requests, never connects to any remote server, and never writes.
 
-```python
-# register in an MCP client config:
+```json
+// register in an MCP client config (replace the path with YOUR checkout):
 {
   "mcpServers": {
     "cooleval": {
       "command": "python3",
-      "args": ["/path/to/CooLEVAL/scripts/cooleval_mcp.py"]
+      "args": ["/path/to/your-CooLEVAL/scripts/cooleval_mcp.py"],
+      "env": { "EVAL_DB": "/path/to/your-local-eval.db" }
     }
   }
 }
@@ -114,6 +118,15 @@ Exposed tools: `cooleval_metrics` (success rate + Wilson CI + n-gate),
 `cooleval_battery` (per-task/model battery, incl. usage), `cooleval_token_efficiency`
 (cache-adjusted tokens-per-success), `cooleval_memory_benchmark` (latest backend
 recall by class), `cooleval_etl_watermark`. All read-only; the server never writes.
+
+### Use it as a Hermes plugin
+
+Prefer a small in-process plugin over a separate MCP server? `agent-plugin/cooleval`
+ships a **self-hosted, read-only** Hermes plugin: enable it, and an agent can call
+`get_metrics()` / `get_battery()` directly against the local eval.db you built.
+Same guarantees — no network, no writes, reads only your own local file. See
+[agent-plugin/cooleval/README.md](agent-plugin/cooleval/README.md) for install + the
+`hermes plugins enable cooleval` step.
 
 ## Extreme Tests — where the ceiling actually shows
 
@@ -283,6 +296,7 @@ scripts/
   make_animate.py          regenerate animated GIFs + logo
 assets/                    original visuals (static, animated, logo.svg)
 reports/                   generated reports
+agent-plugin/cooleval/     self-hosted Hermes plugin (read-only local queries)
 CONTRIBUTING.md            contribution + stats-honesty contract
 RESEARCH.md                probe findings, model batteries, methodology
 docs/
@@ -309,6 +323,7 @@ docs/
 - [x] Token-efficiency metric (tokens-per-success, cache-adjusted)
 - [x] Full memory benchmark (ambiguous/noisy queries, cross-session decay, N≥150)
 - [x] Read-only MCP server over the eval DB (for other agents)
+- [x] Self-hosted Hermes plugin (agent-plugin/cooleval)
 - [ ] Weekly scheduled reports
 
 ## License

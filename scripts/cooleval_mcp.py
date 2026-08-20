@@ -36,9 +36,13 @@ from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
-EVAL_DB = os.environ.get("EVAL_DB", str(Path.home() / ".hermes" / "data" / "hermes-eval.db"))
+EVAL_DB = os.environ.get("EVAL_DB", str(Path(__file__).resolve().parent.parent / "eval.db"))
 EVAL_ROOT = os.environ.get("COOLEVAL_ROOT",
                            str(Path(__file__).resolve().parent.parent))
+# NOTE: this server is SELF-HOSTED. It reads whatever local SQLite file EVAL_DB
+# points to on THIS machine — it never connects to any remote host, and it never
+# writes. You build/own your own eval.db (run scripts/eval-etl.py locally) and
+# point EVAL_DB at it. It is intentionally NOT wired to any external server.
 MEMORY_EVAL_DIR = Path(EVAL_ROOT) / "reports" / "memory-eval-full"
 
 mcp = FastMCP(
