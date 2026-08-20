@@ -13,3 +13,4 @@ reports/*.json
 reports/price-probe-*.json
 /tmp/
 .DS_Store
+reports/memory-eval/
