@@ -163,6 +163,35 @@ is per-query wall-clock. N-gate + Wilson CI apply as elsewhere. The live
 `eval-memory.py` recall on the real (thin) production corpus is LOW — that is
 an honest observation about a sparse warm tier, not a backend-quality verdict.
 
+**Full discriminating benchmark (`eval-memory-full.py`, 2026-08-20, dry run).**
+The 8-fact head-to-head saturated, so calling it a comparison is over-reading
+it. The full benchmark scales to the point where the two backends actually
+diverge, on a query taxonomy (single / multi / under-specified / noisy) +
+cross-session decay (distractor budget grows per session — 5%/20%/40% — each a
+fresh store, so it measures *delayed* recall, not just immediate). Results,
+60 synthetic facts × 3 sessions = 720 queries per backend (~7 s, zero API,
+deterministic):
+
+| Class | UHMA | Holographic |
+|---|---:|---:|
+| single (direct) | 180/180 (100%) | 162/180 (90%) |
+| multi (two targets) | 180/180 (100%) | 144/180 (80%) |
+| noisy (buried target) | 45/180 (25%) | 162/180 (90%) |
+| under (paraphrase) | 9/180 (5%) | 0/180 (0%) — needs LLM judge |
+
+Single run, synthetic English corpus — treat the exact numbers as exploratory,
+but the *pattern* is the point the 8-fact run couldn't show: each backend has
+a different failure profile. UHMA nails direct/multi recall but is brittle when
+the target is buried in unrelated text (noisy 25% — its FTS/CJK keyword
+extraction degrades on a long English sentence with a numeric target); the
+Holographic hybrid (FTS+Jaccard+HRR) resists noise better but drops
+single-target direct recall (90%) and multi-target (80%). Under-specified
+paraphrases are the hardest for both — correctly gated: with `--llm` those
+cases escalate to a judge; by default (dry) they're scored deterministically
+and flagged so a head-to-head is never confounded by judge noise without
+opting in. Generate/distractors are deterministic (seeded), so reruns reproduce.
+Run it yourself: `python3 scripts/eval-memory-full.py --facts 60 --reps 3`.
+
 ## 5. Cost honesty
 
 - Provider APIs frequently do not report cost (`cost_status: unknown`); accurate

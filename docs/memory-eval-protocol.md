@@ -30,6 +30,6 @@ python3 scripts/bench_s1s2.py
 
 ## Findings (2026-08-20 smoke)
 
-- Controlled 8-fact corpus: S1 UHMA 8/8 (100%), S2 Holographic 8/8 (100%), latency 2–6ms. Not a differentiator at small scale — consistent with CooLEVAL's existing "long-context recall saturates at small size" finding. Full differentiation needs a larger corpus + ambiguous queries + cross-session decay (protocol N≥150).
+- Controlled 8-fact corpus: S1 UHMA 8/8 (100%), S2 Holographic 8/8 (100%), latency 2–6ms. Not a differentiator at small scale — consistent with CooLEVAL's existing "long-context recall saturates at small size" finding. Full differentiation needs a larger corpus + ambiguous queries + cross-session decay — shipped as `eval-memory-full.py` (see RESEARCH.md §4).
 
-Raw per-run JSONL lives under `reports/memory-eval/` (gitignored).
+Raw per-run JSONL lives under `reports/memory-eval/` and `reports/memory-eval-full/` (gitignored).
