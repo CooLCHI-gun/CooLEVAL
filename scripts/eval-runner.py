@@ -116,6 +116,107 @@ def spec_hash(task: dict) -> str:
     return hashlib.sha256(task["prompt"].replace("{EVAL_ROOT}", EVAL_ROOT).encode()).hexdigest()[:16]
 
 
+# ── Semantic validators (Sonar must-fix 1 / item 5) ────────────────────────
+# Tiered, DETERMINISTIC validation beyond "artifact exists and is non-empty".
+#   Tier 1 structural: file exists + min_bytes (already done).
+#   Tier 2 field/content: task-specific invariants checked in pure Python.
+#   (Tier 3 LLM-judge is deliberately deferred — second release, explicit.)
+# Each validator receives the TASK DIR and validates the task's real content
+# file (semantic_file), NOT the completion marker (t3/t6 write a 'DONE' marker
+# artifact but the semantic content lives in copy.py / out.txt respectively).
+def _val_t1(taskdir: Path) -> tuple:
+    """3-line summary of task_plan.md — must actually summarize the doc."""
+    path = taskdir / "summary.txt"
+    try:
+        text = path.read_text()
+    except Exception as e:  # noqa: BLE001
+        return False, f"unreadable: {e}"
+    lines = [l for l in text.splitlines() if l.strip()]
+    if len(lines) < 2:
+        return False, f"too thin ({len(lines)} line, expected ~3-line summary)"
+    # the summary should reference the doc's actual topic (ETL/data pipeline)
+    try:
+        src = (Path(EVAL_ROOT) / "task_plan.md").read_text(errors="ignore")[:2000].lower()
+    except Exception:  # noqa: BLE001 — source doc may not ship in public repo
+        src = "data pipeline etl metrics benchmark run evaluate memory telemetry"
+    src_tokens = {w for w in src.split() if len(w) >= 5}
+    hit = [w for w in src_tokens if w in text.lower()]
+    if not hit:
+        return False, "summary has no lexically-traceable topic from task_plan.md"
+    return True, f"{len(lines)} line(s), topic anchors: {', '.join(list(hit)[:3])}"
+
+
+def _val_t2(taskdir: Path) -> tuple:
+    """5-line integrated summary — must mention Hermes AND Nous Research."""
+    try:
+        text = (taskdir / "summary.md").read_text().lower()
+    except Exception as e:  # noqa: BLE001
+        return False, f"unreadable: {e}"
+    anchors = [t for t in ("hermes", "nous") if t in text]
+    if len(anchors) < 2:
+        return False, f"integration incomplete: found {anchors or 'neither'} of hermes/nous"
+    return True, f"anchors: {', '.join(anchors)}"
+
+
+def _val_t3(taskdir: Path) -> tuple:
+    """copy.py with 'traces.jsonl' rewritten to 'traces_v2.jsonl'."""
+    try:
+        text = (taskdir / "copy.py").read_text()
+    except Exception as e:  # noqa: BLE001
+        return False, f"unreadable: {e}"
+    if "traces_v2.jsonl" not in text:
+        return False, "rewrite missing: 'traces_v2.jsonl' not found in copy"
+    # must not have left an unmodified bare reference to the original string
+    if "traces.jsonl" in text.replace("traces_v2.jsonl", ""):
+        return False, "found unreplaced 'traces.jsonl' reference"
+    return True, "traces_v2.jsonl present & original ref replaced/renamed"
+
+
+def _val_t4(taskdir: Path) -> tuple:
+    """3-line summary of user's main active projects from memory."""
+    try:
+        text = (taskdir / "summary.txt").read_text().lower()
+    except Exception as e:  # noqa: BLE001
+        return False, f"unreadable: {e}"
+    if len(text.strip()) < 30:
+        return False, "summary content too thin for a memory-recall task"
+    return True, f"recalled summary present ({len(text.strip())} chars)"
+
+
+def _val_t5(taskdir: Path) -> tuple:
+    """One cron job's name + schedule."""
+    try:
+        text = (taskdir / "summary.txt").read_text().lower()
+    except Exception as e:  # noqa: BLE001
+        return False, f"unreadable: {e}"
+    has_sched = any(c in text for c in "0123456789:*/")
+    if len(text.strip()) < 8 or not has_sched:
+        return False, "no job name/schedule content found"
+    return True, "job name + schedule present"
+
+
+def _val_t6(taskdir: Path) -> tuple:
+    """out.txt must be exactly 'hello-battery' (subagent delegation contract)."""
+    try:
+        text = (taskdir / "out.txt").read_text()
+    except Exception as e:  # noqa: BLE001
+        return False, f"unreadable: {e}"
+    if "hello-battery" not in text:
+        return False, f"delegation output mismatch: got {text[:40]!r}"
+    return True, "hello-battery contract satisfied"
+
+
+# tie each task to its semantic validator (fall through = structural only)
+SEMANTIC_VALIDATORS = {
+    "t1_file_summary": _val_t1,
+    "t2_search_integrate": _val_t2,
+    "t3_code_modify": _val_t3,
+    "t4_memory_recall": _val_t4,
+    "t5_cron_check": _val_t5,
+    "t6_delegation": _val_t6,
+}
+
+
 def _read_usage_file(path) -> dict | None:
     """Read the --usage-file JSON written by hermes -z. Returns None when
     absent/unparseable so token metrics degrade gracefully."""
@@ -183,6 +284,15 @@ def run_once(task_key: str, run_n: int, timeout_s: int = 180,
     # Independent artifact check (not agent self-report) — absolute path
     artifact = OUT_ROOT / task_key / task["artifact"]
     ok = artifact.is_file() and artifact.stat().st_size >= task["min_bytes"]
+    # Tiered semantic validation (structural-first, per-task invariants)
+    semantic_ok = None
+    semantic_note = ""
+    validator = SEMANTIC_VALIDATORS.get(task_key)
+    if ok and validator is not None:
+        semantic_ok, semantic_note = validator(workdir)
+    elif ok:
+        semantic_ok = True  # structural-only task passes semantic by virtue of existence
+        semantic_note = "structural-only (no domain validator)"
     status = "completed" if ok else ("failed" if exit_code != -1 else "timeout")
 
     return {
@@ -194,6 +304,8 @@ def run_once(task_key: str, run_n: int, timeout_s: int = 180,
         "exit_code": exit_code,
         "duration_h": duration_h,
         "artifact_ok": ok,
+        "semantic_ok": semantic_ok,
+        "semantic_note": semantic_note,
         "tail": tail[-500:],
         "stdout_len": stdout_len,
         "model": model,
@@ -242,6 +354,8 @@ def main() -> None:
                 (run_id, task_key, n, r["spec_hash"], r["status"], r["duration_h"],
                  time.time(), json.dumps({"exit_code": r["exit_code"],
                                           "artifact_ok": r["artifact_ok"],
+                                          "semantic_ok": r["semantic_ok"],
+                                          "semantic_note": r["semantic_note"],
                                           "difficulty": r["difficulty"],
                                           "model": args.model,
                                           "provider": args.provider,
@@ -249,9 +363,10 @@ def main() -> None:
                                           "usage": r["usage"]})),
             )
             con.commit()
+            sem = "✓" if r["semantic_ok"] else ("✗" if r["semantic_ok"] is False else "?")
             print(f"  {run_id}: status={r['status']} dur={r['duration_h']*3600:.0f}s "
-                  f"exit={r['exit_code']} artifact_ok={r['artifact_ok']} "
-                  f"stdout={r['stdout_len']}ch tokens={_usage_short(r['usage'])}")
+                  f"exit={r['exit_code']} artifact={r['artifact_ok']} sem={sem} "
+                  f"[{r['semantic_note'][:40]}] stdout={r['stdout_len']}ch tokens={_usage_short(r['usage'])}")
             results.append(r)
 
     print(f"\n=== battery summary ===")
