@@ -7,11 +7,21 @@
 <p align="center"><strong>Agent success collapses past the one-hour mark — measured on production traffic, not a benchmark.</strong></p>
 
 <p align="center">
+  <a href="docs/README-zh-TW.md"><strong>繁體中文導讀 →</strong></a>
+</p>
+
+<p align="center">
   <code>586 sessions</code> · <code>&lt;15min 98.4%</code> · <code>&ge;1h 7.4% (2/27)</code>
 </p>
 
 <p align="center">
-  <a href="#the-meltdown-curve">See the curve</a> · <a href="#quickstart">Quickstart</a> · <a href="#extreme-tests--where-the-ceiling-actually-shows">Extreme tests</a> · <a href="#limitations">Limitations</a>
+  <img src="https://img.shields.io/badge/metric-memory%20eval%20(N%E2%89%A5150)-blue" alt="memory eval">
+  <img src="https://img.shields.io/badge/metric-cache--adjusted%20tokens%2Fsuccess-blue" alt="token efficiency">
+  <img src="https://img.shields.io/badge/metric-USD%2Fsuccess-blue" alt="cost per success">
+</p>
+
+<p align="center">
+  <a href="#the-meltdown-curve">See the curve</a> · <a href="#quickstart">Quickstart</a> · <a href="#extreme-tests--where-the-ceiling-actually-shows">Extreme tests</a> · <a href="#memory-eval--the-layer-under-the-model">Memory-Eval</a> · <a href="#limitations">Limitations</a>
 </p>
 
 > Dogfood evaluation framework for production AI agents. Every number in this README
@@ -83,6 +93,28 @@ python3 scripts/eval-report.py
 Task specs are pre-registered with `spec_hash` and `difficulty` — reproducibility
 without outcome-inferred labels.
 
+### Use it as an MCP server (agents)
+
+Query CooLEVAL's measured results from another agent via a read-only MCP server
+(`scripts/cooleval_mcp.py`, wraps the eval SQLite DB — SELECT-only, no heavy deps):
+
+```python
+# register in an MCP client config:
+{
+  "mcpServers": {
+    "cooleval": {
+      "command": "python3",
+      "args": ["/path/to/CooLEVAL/scripts/cooleval_mcp.py"]
+    }
+  }
+}
+```
+
+Exposed tools: `cooleval_metrics` (success rate + Wilson CI + n-gate),
+`cooleval_battery` (per-task/model battery, incl. usage), `cooleval_token_efficiency`
+(cache-adjusted tokens-per-success), `cooleval_memory_benchmark` (latest backend
+recall by class), `cooleval_etl_watermark`. All read-only; the server never writes.
+
 ## Extreme Tests — where the ceiling actually shows
 
 11 models (closed frontier, open weights, baseline), 5 hard ceiling tests, rubric
@@ -132,6 +164,78 @@ callable — all Claude-family endpoints rejected the `temperature` parameter
 (deprecated), GPT-family required the Responses API, and a Gemini endpoint was down
 entirely. The probe catches this before you waste a battery.
 
+## Memory-Eval — the layer under the model
+
+Agent reliability is not only a model property. The memory backend — what gets
+stored, retrieved, and injected into context — determines whether the model ever
+sees the right facts. CooLEVAL scores memory backends as first-class subjects,
+with the same n-gate and honesty discipline applied to model evals.
+
+Backends are exercised head-to-head on a shared fact corpus across four retrieval
+classes: **single** (one fact, direct recall), **multi** (fact composition),
+**noisy** (relevant fact buried in distractors), and **under** (under-specified
+query — no lexical match, requires inference). The **under** class **gates to an
+LLM judge** (`--llm`); the default dry run keeps scoring deterministic and never
+confounds a head-to-head with judge variance.
+
+### Controlled 8-fact probe (saturated)
+
+Both backends answer 8/8. This N is too small to rank — it exists only to confirm
+neither backend is broken before running the discriminating suite.
+
+| Backend      | Score | Latency (min–max) |
+|--------------|-------|-------------------|
+| UHMA         | 8/8   | 1.6–7.1 ms        |
+| Holographic  | 8/8   | 2.4–5.3 ms        |
+
+**No winner is claimed at N=8.** Result is saturated.
+
+### Discriminating benchmark (N=180 per class)
+
+60 synthetic facts × 3 sessions = 720 queries per backend, ~7 s wall-clock, zero
+API calls, deterministic. Per retrieval class (N=180 each):
+
+| Retrieval class | UHMA         | Holographic  |
+|-----------------|--------------|--------------|
+| single          | 180/180 (100%) | 162/180 (90%) |
+| multi           | 180/180 (100%) | 144/180 (80%) |
+| noisy           | 45/180 (25%)   | 162/180 (90%) |
+| under (→ `--llm`) | 9/180 (5%)   | 0/180 (0%)   |
+
+The classes separate the backends sharply and in *opposite directions*: UHMA wins
+clean recall (single/multi) but collapses under distractor noise, where Holographic
+holds 90%. Neither backend is a general winner — the failure modes are the finding.
+
+### OpenViking — gated, not deployed
+
+The OpenViking provider class ships in the tree but is **not deployed**: a 1.2 GB
+install plus heavy dependencies is indefensible on the 4 GB reference box. It runs
+gated and emits a server-down trace so evals fail loud rather than silently skip.
+
+### Caveats
+
+- Corpus is **synthetic/constructed**, not production telemetry.
+- **Single run** — no cross-run variance reported.
+- **Exploratory, not confirmatory.** These numbers motivate hypotheses; they do not
+  certify a backend. Re-run with `--llm` and multiple seeds before citing.
+
+## Cost & Efficiency
+
+`eval-runner` captures token telemetry via `--usage-file`; `eval-tokeneff.py`
+derives two per-model metrics:
+
+- **cache-adjusted tokens-per-success** — total billable tokens (prompt cache hits
+  discounted at the provider's cached rate, output tokens counted in full) divided
+  by the number of *successful* tasks. Failed tasks still spend tokens, so this
+  charges wasted spend against the successes it produced.
+- **USD-per-success** — the same denominator against real billed dollars.
+
+**These are cost metrics, not quality metrics.** A lower tokens-per-success means a
+model reached correct answers more cheaply — it says nothing about answer quality,
+reasoning depth, or robustness. Never rank models on efficiency alone; read it
+beside the Wilson-CI success rate. A cheap model that fails the n-gate is not
+efficient, it is just cheap.
+
 ## Architecture (L0–L3)
 
 One script per layer, no framework.
@@ -174,12 +278,15 @@ scripts/
   memory_health_report.py  memory-recall health report (aggregate-only, Wilson CI, rolling windows)
   eval-tokeneff.py         token-efficiency metric (cache-adjusted tokens-per-success)
   eval-memory-full.py      discriminating memory benchmark (N>=150, query taxonomy + cross-session decay)
+  cooleval_mcp.py          read-only MCP server over the eval DB (for other agents)
   make_assets.py           regenerate static visuals (dark + light themes)
   make_animate.py          regenerate animated GIFs + logo
 assets/                    original visuals (static, animated, logo.svg)
 reports/                   generated reports
+CONTRIBUTING.md            contribution + stats-honesty contract
 RESEARCH.md                probe findings, model batteries, methodology
 docs/
+  README-zh-TW.md          繁體中文導讀 (reading guide; English README is canonical)
   memory-eval-protocol.md  memory-backend comparison protocol (S1/S2/S3 design, metrics)
 ```
 
@@ -189,6 +296,7 @@ docs/
 - Task boundaries are self-reported by the session lifecycle; no covariate control for task difficulty vs duration.
 - Long-duration buckets are small (n=8/7/12); the pooled ≥1h contrast is the defensible claim.
 - Battery one-shot sessions are excluded from session-level analysis by a pre-registered rule.
+- Memory-eval corpus is synthetic/constructed and a single run — exploratory, not confirmatory; the under-class is gated to an LLM judge.
 - Rubric scores are automated string/compile checks — not human expert grading.
 
 ## Roadmap
@@ -200,6 +308,7 @@ docs/
 - [x] Semantic validation of artifacts (tiered deterministic content checks)
 - [x] Token-efficiency metric (tokens-per-success, cache-adjusted)
 - [x] Full memory benchmark (ambiguous/noisy queries, cross-session decay, N≥150)
+- [x] Read-only MCP server over the eval DB (for other agents)
 - [ ] Weekly scheduled reports
 
 ## License
