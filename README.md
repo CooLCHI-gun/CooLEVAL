@@ -177,6 +177,31 @@ callable — all Claude-family endpoints rejected the `temperature` parameter
 (deprecated), GPT-family required the Responses API, and a Gemini endpoint was down
 entirely. The probe catches this before you waste a battery.
 
+## Step-level trajectory — see which tool call actually broke
+
+A battery tells you a run *failed*; `trace-steps.py` tells you **which tool call it
+was, and why**. It reads your own span telemetry (the span-tracer JSONL) and builds a
+per-session or per-run step timeline with:
+
+- **first-failing step** — tool name + `error_type`/`error_message` at the exact call;
+- **loop signal** — longest run of the same tool back-to-back (a stall signature);
+- **slowest step** — the wall-clock outlier that blew your latency budget;
+- **structure-only preview** — `args_shape` (key → value type) and `result_summary`
+  (type + size) so you can see *what shape* the call took and *how big* the result was,
+  **without persisting raw arg/result content** (PII-safe by construction).
+
+```bash
+# a specific battery run (joined by its time window in the eval DB)
+python3 scripts/trace-steps.py --run t3_code_modify#1
+# or any one session's full step log
+python3 scripts/trace-steps.py --session <session_id> --durations
+```
+
+Success rate answers "**is it reliable**". This answers "**which step, what shape,
+how big — and was it looping**". Guardrail metrics (retries, loop events, context
+growth) are tracked as meltdown *precursors*; this zooms into the step where one
+became a failure.
+
 ## Memory-Eval — the layer under the model
 
 Agent reliability is not only a model property. The memory backend — what gets
@@ -275,6 +300,7 @@ scripts/
   eval-runner.py           L2 dogfood battery (artifact-verified)
   eval-report.py           L3 report generation
   eval-api.py              read-only REST API over the eval DB
+  trace-steps.py           per-run/per-session step trajectory — which tool call broke, loop detection, slowest step
   price-probe.py           provider pre-flight: which listed models actually respond
   extreme-test-runner.py   5-test ceiling battery (direct API, multi-provider)
   score_tests.py           automated rubric scoring + heatmap
