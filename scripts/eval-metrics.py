@@ -221,6 +221,34 @@ def session_analysis() -> dict:
             "hazard_curve": curve, "time_horizon": th}
 
 
+def failure_risk_ratio(curve: list[dict]) -> dict | None:
+    """Pooled FAILURE risk ratio, >=1h vs <15m, with log-method 95% CI.
+
+    Corrects the success-ratio/failure-RR conflation: ``98.4% / 7.4%`` is the
+    SUCCESS ratio (13.3x), NOT the risk ratio. The honest failure risk ratio is
+    ``(fail_>=1h) / (fail_<15m)``, which is far larger. n-gated on both sides.
+    """
+    short = next((b for b in curve if b.get("bucket") == "<15m"), None)
+    long_n = sum(b["n"] for b in curve if b.get("lo", 0.0) >= 1.0)
+    long_k = sum(b["success"] for b in curve if b.get("lo", 0.0) >= 1.0)
+    if not short or short["n"] < MIN_N or long_n < MIN_N:
+        return None
+    short_f = short["n"] - short["success"]
+    long_f = long_n - long_k
+    if short_f <= 0 or long_f <= 0 or long_n <= 0 or short["n"] <= 0:
+        return None
+    rr = (long_f / long_n) / (short_f / short["n"])
+    se = math.sqrt(1 / long_f - 1 / long_n + 1 / short_f - 1 / short["n"])
+    ln = math.log(rr)
+    return {
+        "rr": rr,
+        "ci_lo": math.exp(ln - 1.96 * se),
+        "ci_hi": math.exp(ln + 1.96 * se),
+        "success_short": short["success"], "n_short": short["n"],
+        "success_long": long_k, "n_long": long_n,
+    }
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--json", action="store_true")
@@ -301,6 +329,17 @@ def main() -> None:
     for b in report["hazard_curve"]:
         tag = " [exploratory]" if b["exploratory"] else ""
         print(f"  {b['bucket']:<12} {b['success_rate']}{tag}")
+    rr = failure_risk_ratio(curve)
+    if rr:
+        report["failure_risk_ratio"] = {"rr": rr["rr"], "ci_lo": rr["ci_lo"], "ci_hi": rr["ci_hi"]}
+        sr = rr["success_short"] / rr["n_short"]
+        lr = rr["success_long"] / rr["n_long"]
+        print(f"\nSUCCESS COLLAPSE: {rr['success_short']}/{rr['n_short']} ({sr:.1%}) <15m "
+              f"-> {rr['success_long']}/{rr['n_long']} ({lr:.1%}) >=1h")
+        print(f"  success ratio: {sr / lr:.1f}x (this is a SUCCESS ratio, not a risk ratio)")
+        print(f"  FAILURE RISK RATIO: {rr['rr']:.1f}x (95% CI {rr['ci_lo']:.0f}-{rr['ci_hi']:.0f}x)")
+    else:
+        print("\nFAILURE RISK RATIO: n-gate not met")
     print("\ntask-type breakdown (n-gated):")
     for t in report["task_type_breakdown"]:
         tag = " [exploratory]" if t["exploratory"] else ""
