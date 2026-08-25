@@ -41,6 +41,24 @@ CooLEVAL 不只檢視「模型答對多少題」，而是檢視三個層面：
 
 ---
 
+## Step 層級軌跡（step trajectory）
+
+Meltdown 告訴你「session 會崩潰」，而 **step trajectory** 則告訴你「**是哪一個 tool
+call 先出事**」。`trace-steps.py` 由 span telemetry 砌出 per-session / per-run 的
+step timeline，指出：
+
+- **第一個失敗的 step** — 工具名稱 + `error_type` / `error_message`；
+- **loop 訊號** — 同一個工具連續重複的長度（一種卡死的表徵）；
+- **最慢的 step** — 突破延遲預算的離群值；
+- **structure-only 預覽** — `args_shape`（key → value 型別）與 `result_summary`
+  （型別 + 大小），可見該次呼叫的**形狀**與**大小**，但**不持久化任何 raw
+  arg/result 內容**（PII-safe）。
+
+換言之：成功率回答「**可靠嗎**」，step trajectory 回答「**哪一步、什麼形狀、多大、
+有沒有在 loop**」。
+
+---
+
 ## 統計誠實原則（最重要）
 
 CooLEVAL 的立場：**寧可不出結論，也不可出錯結論。**
@@ -101,6 +119,8 @@ CooLEVAL 的立場：**寧可不出結論，也不可出錯結論。**
 | `meltdown curve` | 現象 | 長 session 中 success rate 急遽下降的曲線，反映 agent 難以支撐長 context |
 | `survival & hazard` | 分析方法 | 借用 survival analysis 與 hazard rate 觀察 agent 何時開始「死亡」及失敗風險隨時間的變化 |
 | `extreme tests` | 功能 (ceiling battery) | ceiling battery，刻意使用高難度 task 逼出 agent 的能力上限 |
+| `step trajectory` | 功能 (診斷) | 逐 tool call 拆解執行過程：指出第一個失敗的 step、loop 訊號、最慢 step |
+| `trace-steps.py` | script (step trajectory) | 由 span telemetry 砌出 per-session / per-run 的 step timeline |
 | `continuous/CI` | 流程 | 於 CI pipeline 自動執行 eval，每次 code 改動皆執行一次以確保無 regression |
 
 ## 快速開始（Quickstart）
