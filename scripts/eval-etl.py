@@ -70,7 +70,16 @@ CREATE TABLE IF NOT EXISTS span_metrics (
     output_tok INT,
     latency_ms INT,
     duration_ms INT,
-    ok INT
+    ok INT,
+    turn_id TEXT,
+    tool_call_id TEXT,
+    is_error INT,
+    error_type TEXT,
+    error_message TEXT,
+    task_id TEXT,
+    schema_version INT,
+    args_shape TEXT,
+    result_summary TEXT
 );
 CREATE TABLE IF NOT EXISTS battery_runs (
     run_id TEXT PRIMARY KEY,
@@ -133,12 +142,19 @@ def classify_task_type(goal: str) -> str:
 
 
 def ingest_task_events(con: sqlite3.Connection) -> tuple[int, int]:
-    src = sqlite3.connect(f"file:{MEM_DB}?mode=ro", uri=True)
-    rows = src.execute(
-        "SELECT id, parent_session, task_id, agent_name, status, goal_preview, "
-        "started_at, finished_at, result_summary FROM agent_lifecycle"
-    ).fetchall()
-    src.close()
+    try:
+        src = sqlite3.connect(f"file:{MEM_DB}?mode=ro", uri=True)
+        rows = src.execute(
+            "SELECT id, parent_session, task_id, agent_name, status, goal_preview, "
+            "started_at, finished_at, result_summary FROM agent_lifecycle"
+        ).fetchall()
+        src.close()
+    except (sqlite3.Error, OSError) as exc:
+        # Fail-open: task_events source (memory-unified.db) may not exist on a
+        # fresh checkout. Skip task ingestion but keep span ingestion running.
+        print(f"[eval-etl] WARN: task_events source unavailable ({exc}); "
+              f"skipping task ingestion (spans unaffected)", file=sys.stderr)
+        return 0, 0
 
     # Enrich with model tier from state.db sessions (by parent_session id).
     model_by_session: dict[str, str] = {}
@@ -198,6 +214,25 @@ def ingest_task_events(con: sqlite3.Connection) -> tuple[int, int]:
     return len(rows), ingested
 
 
+_SPAN_STEP_COLS = [
+    "turn_id TEXT", "tool_call_id TEXT", "is_error INT",
+    "error_type TEXT", "error_message TEXT", "task_id TEXT",
+    "schema_version INT", "args_shape TEXT", "result_summary TEXT",
+]
+
+
+def _ensure_span_columns(con: sqlite3.Connection) -> None:
+    """Idempotently add the step-enrichment columns to a pre-existing
+    span_metrics table (CREATE TABLE IF NOT EXISTS won't alter an existing
+    table). Missing columns are added via ALTER; present ones are skipped."""
+    existing = {r[1] for r in con.execute("PRAGMA table_info(span_metrics)")}
+    for col_def in _SPAN_STEP_COLS:
+        col_name = col_def.split()[0]
+        if col_name not in existing:
+            con.execute(f"ALTER TABLE span_metrics ADD COLUMN {col_def}")
+            existing.add(col_name)
+
+
 def ingest_spans(con: sqlite3.Connection) -> tuple[int, int]:
     total = 0
     ingested = 0
@@ -217,8 +252,10 @@ def ingest_spans(con: sqlite3.Connection) -> tuple[int, int]:
                 sid = _span_id(d)
                 con.execute(
                     "INSERT OR IGNORE INTO span_metrics (span_id, span_type, ts, session_id, "
-                    "tool_name, tier, model, input_tok, output_tok, latency_ms, duration_ms, ok) "
-                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "tool_name, tier, model, input_tok, output_tok, latency_ms, duration_ms, ok, "
+                    "turn_id, tool_call_id, is_error, error_type, error_message, task_id, schema_version, "
+                    "args_shape, result_summary) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (
                         sid,
                         d.get("type"),
@@ -232,6 +269,15 @@ def ingest_spans(con: sqlite3.Connection) -> tuple[int, int]:
                         d.get("latency_ms", 0),
                         d.get("duration_ms", 0),
                         1 if d.get("ok", True) else 0,
+                        d.get("turn_id"),
+                        d.get("tool_call_id"),
+                        1 if d.get("is_error") else 0,
+                        d.get("error_type"),
+                        d.get("error_message"),
+                        d.get("task_id"),
+                        d.get("schema_version"),
+                        json.dumps(d.get("args_shape"), ensure_ascii=False) if d.get("args_shape") is not None else None,
+                        d.get("result_summary"),
                     ),
                 )
                 ingested += 1
@@ -251,12 +297,14 @@ def main() -> None:
     ap.add_argument("--rebuild", action="store_true")
     args = ap.parse_args()
 
+    EVAL_DB.parent.mkdir(parents=True, exist_ok=True)
     con = sqlite3.connect(EVAL_DB)
     con.execute("PRAGMA journal_mode=WAL")
     if args.rebuild:
         for t in ("task_events", "span_metrics", "battery_runs", "etl_watermarks"):
             con.execute(f"DROP TABLE IF EXISTS {t}")
     con.executescript(SCHEMA)
+    _ensure_span_columns(con)
 
     t0 = time.time()
     src_n, ing_n = ingest_task_events(con)
