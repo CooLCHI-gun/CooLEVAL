@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install
+        run: pip install pytest
+
+      - name: Unit tests (pure functions)
+        run: pytest -q
+
+      # Reproducibility gate: the advertised quickstart (ETL -> metrics) must
+      # run end-to-end on a fresh checkout against the demo fixture, WITHOUT
+      # crashing. This is the regression test for the fail-open fixes.
+      - name: Demo pipeline smoke (make-demo-data -> ETL -> metrics)
+        run: |
+          set -e
+          python3 scripts/make-demo-data.py
+          HERMES_MEM_DB="$PWD/demo/memory-unified.db" \
+          HERMES_TRACES="$PWD/demo/traces.jsonl" \
+          HERMES_STATE_DB="$PWD/demo/state.db" \
+          EVAL_DB="$PWD/demo/eval.db" \
+            python3 scripts/eval-etl.py --rebuild > demo/etl.out
+          EVAL_DB="$PWD/demo/eval.db" HERMES_STATE_DB="$PWD/demo/state.db" \
+            python3 scripts/eval-metrics.py > demo/metrics.out
+
+      # Gate must be STRONG: it must fail if ingestion silently produced an
+      # empty report (a bug the fail-open path could otherwise mask).
+      - name: Assert real ingestion + real proportions
+        run: |
+          grep -qE "task_events:  source=[1-9]" demo/etl.out
+          grep -qE "span_metrics: source=[1-9]" demo/etl.out
+          test -s demo/metrics.out
+          grep -qE "TASK SUCCESS RATE: [0-9]" demo/metrics.out
+          grep -qE "SESSION-LEVEL.*success rate [0-9]" demo/metrics.out
+          grep -q "hazard curve" demo/metrics.out

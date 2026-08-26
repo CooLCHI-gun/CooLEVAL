@@ -186,13 +186,39 @@ BATTERY_PROMPT_PREFIXES = (
 )
 
 
+def _session_placeholder() -> dict:
+    """Fail-open fallback when state.db (session source) is unavailable."""
+    return {
+        "n": 0, "excluded_battery": 0, "success_rate": fmt_pct(0, 0),
+        "hazard_curve": [
+            {"bucket": label, "rate": fmt_pct(0, 0), "exploratory": True}
+            for _, _, label in DURATION_BUCKETS
+        ],
+        "time_horizon": None,
+    }
+
+
 def session_analysis() -> dict:
-    con = sqlite3.connect(f"file:{STATE_DB}?mode=ro", uri=True)
-    rows = con.execute(
-        "SELECT started_at, ended_at, end_reason, title FROM sessions "
-        "WHERE started_at IS NOT NULL AND ended_at IS NOT NULL"
-    ).fetchall()
-    con.close()
+    # Fail-open: the session source (state.db) may be absent on a fresh clone —
+    # same philosophy as eval-etl's fail-open on its sources. Skip the
+    # session-level analysis cleanly rather than crash; task/span metrics are
+    # unaffected. This keeps the advertised quickstart
+    # (eval-etl.py && eval-metrics.py) runnable end-to-end on a fresh checkout.
+    if not STATE_DB.exists():
+        print(f"[eval-metrics] WARN: state.db not found ({STATE_DB}); "
+              f"skipping session-level analysis", file=sys.stderr)
+        return _session_placeholder()
+    try:
+        con = sqlite3.connect(f"file:{STATE_DB}?mode=ro", uri=True)
+        rows = con.execute(
+            "SELECT started_at, ended_at, end_reason, title FROM sessions "
+            "WHERE started_at IS NOT NULL AND ended_at IS NOT NULL"
+        ).fetchall()
+        con.close()
+    except sqlite3.Error as exc:
+        print(f"[eval-metrics] WARN: state.db unavailable ({STATE_DB}: {exc}); "
+              f"skipping session-level analysis", file=sys.stderr)
+        return _session_placeholder()
     sessions = []
     excluded = 0
     for started, ended, reason, title in rows:
@@ -254,59 +280,82 @@ def main() -> None:
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
-    con = sqlite3.connect(f"file:{EVAL_DB}?mode=ro", uri=True)
+    if EVAL_DB.exists():
+        try:
+            con = sqlite3.connect(f"file:{EVAL_DB}?mode=ro", uri=True)
+        except sqlite3.Error as exc:
+            print(f"[eval-metrics] WARN: eval.db unavailable ({EVAL_DB}: {exc}); "
+                  f"task/span metrics skipped (session-level still runs).", file=sys.stderr)
+            con = None
+    else:
+        print(f"[eval-metrics] WARN: eval.db not found ({EVAL_DB}); run eval-etl.py "
+              f"first. Task/span metrics skipped (session-level still runs).", file=sys.stderr)
+        con = None
     report: dict = {}
+    curve = []
 
-    # ── Taxonomy validation ──────────────────────────────────────────────
-    issues = validate_taxonomy(con)
-    report["taxonomy_valid"] = not issues
-    report["taxonomy_issues"] = issues[:5]
+    if con is not None:
+        # ── Taxonomy validation ──────────────────────────────────────────
+        issues = validate_taxonomy(con)
+        report["taxonomy_valid"] = not issues
+        report["taxonomy_issues"] = issues[:5]
 
-    # ── Success rate ─────────────────────────────────────────────────────
-    total = con.execute("SELECT COUNT(*) FROM task_events").fetchone()[0]
-    completed = con.execute(
-        "SELECT COUNT(*) FROM task_events WHERE status='completed'").fetchone()[0]
-    report["task_success_rate"] = fmt_pct(completed, total)
-    report["status_dist"] = dict(con.execute(
-        "SELECT status, COUNT(*) FROM task_events GROUP BY status ORDER BY 2 DESC").fetchall())
+        # ── Success rate ─────────────────────────────────────────────────
+        total = con.execute("SELECT COUNT(*) FROM task_events").fetchone()[0]
+        completed = con.execute(
+            "SELECT COUNT(*) FROM task_events WHERE status='completed'").fetchone()[0]
+        report["task_success_rate"] = fmt_pct(completed, total)
+        report["status_dist"] = dict(con.execute(
+            "SELECT status, COUNT(*) FROM task_events GROUP BY status ORDER BY 2 DESC").fetchall())
 
-    # ── Failure class breakdown ──────────────────────────────────────────
-    report["failure_classes"] = dict(con.execute(
-        "SELECT COALESCE(failure_class,'-'), COUNT(*) FROM task_events "
-        "WHERE status != 'completed' GROUP BY 1 ORDER BY 2 DESC").fetchall())
+        # ── Failure class breakdown ──────────────────────────────────────
+        report["failure_classes"] = dict(con.execute(
+            "SELECT COALESCE(failure_class,'-'), COUNT(*) FROM task_events "
+            "WHERE status != 'completed' GROUP BY 1 ORDER BY 2 DESC").fetchall())
 
-    # ── Hazard curve + time horizon ──────────────────────────────────────
-    curve = success_at_or_after(con)
-    report["hazard_curve"] = [
-        {"bucket": b["bucket"], "success_rate": fmt_pct(b["success"], b["n"]),
-         "exploratory": b["n"] < MIN_N}
-        for b in curve
-    ]
-    th = time_horizon(curve)
-    report["time_horizon"] = th
+        # ── Hazard curve + time horizon ──────────────────────────────────
+        curve = success_at_or_after(con)
+        report["hazard_curve"] = [
+            {"bucket": b["bucket"], "success_rate": fmt_pct(b["success"], b["n"]),
+             "exploratory": b["n"] < MIN_N}
+            for b in curve
+        ]
+        th = time_horizon(curve)
+        report["time_horizon"] = th
 
-    # ── Task-type breakdown (n-gated) ────────────────────────────────────
-    tt = []
-    for ttype, n in con.execute(
-            "SELECT task_type, COUNT(*) FROM task_events GROUP BY task_type ORDER BY 2 DESC"):
-        k = con.execute(
-            "SELECT COUNT(*) FROM task_events WHERE task_type=? AND status='completed'",
-            (ttype,)).fetchone()[0]
-        tt.append({"task_type": ttype, "rate": fmt_pct(k, n), "exploratory": n < MIN_N})
-    report["task_type_breakdown"] = tt
+        # ── Task-type breakdown (n-gated) ────────────────────────────────
+        tt = []
+        for ttype, n in con.execute(
+                "SELECT task_type, COUNT(*) FROM task_events GROUP BY task_type ORDER BY 2 DESC"):
+            k = con.execute(
+                "SELECT COUNT(*) FROM task_events WHERE task_type=? AND status='completed'",
+                (ttype,)).fetchone()[0]
+            tt.append({"task_type": ttype, "rate": fmt_pct(k, n), "exploratory": n < MIN_N})
+        report["task_type_breakdown"] = tt
 
-    # ── Tool failure (n-gated) ───────────────────────────────────────────
-    tf = tool_failures(con)
-    report["tool_failures"] = [
-        {"tool": r["tool"], "per_call": f"{100*r['per_call']:.1f}%",
-         "fails": r["fails"], "n": r["n"], "exploratory": r["exploratory"]}
-        for r in tf if r["fails"] > 0
-    ]
+        # ── Tool failure (n-gated) ───────────────────────────────────────
+        tf = tool_failures(con)
+        report["tool_failures"] = [
+            {"tool": r["tool"], "per_call": f"{100*r['per_call']:.1f}%",
+             "fails": r["fails"], "n": r["n"], "exploratory": r["exploratory"]}
+            for r in tf if r["fails"] > 0
+        ]
 
-    # ── Guardrail loopiness ──────────────────────────────────────────────
-    report["loopiness_top"] = loopiness(con)
+        # ── Guardrail loopiness ──────────────────────────────────────────
+        report["loopiness_top"] = loopiness(con)
 
-    con.close()
+        con.close()
+    else:
+        report["taxonomy_valid"] = False
+        report["taxonomy_issues"] = ["eval.db not available — no data"]
+        report["task_success_rate"] = fmt_pct(0, 0)
+        report["status_dist"] = {}
+        report["failure_classes"] = {}
+        report["hazard_curve"] = []
+        report["time_horizon"] = {"bucket": None, "n": 0, "rate": None}
+        report["task_type_breakdown"] = []
+        report["tool_failures"] = []
+        report["loopiness_top"] = []
 
     # ── Session-level analysis ───────────────────────────────────────────
     report["session"] = session_analysis()
@@ -323,8 +372,12 @@ def main() -> None:
     print(f"\nTASK SUCCESS RATE: {report['task_success_rate']}")
     print(f"status dist: {report['status_dist']}")
     print(f"failure classes: {report['failure_classes']}")
-    print(f"\n50% TIME HORIZON: {report['time_horizon']['bucket']} "
-          f"(rate={report['time_horizon']['rate']:.1%}, n={report['time_horizon']['n']})")
+    th = report["time_horizon"]
+    if th and th["bucket"]:
+        print(f"\n50% TIME HORIZON: {th['bucket']} "
+              f"(rate={th['rate']:.1%}, n={th['n']})")
+    else:
+        print("\n50% TIME HORIZON: n-gate not met (all buckets exploratory or empty)")
     print("hazard curve (P(success | duration >= t)):")
     for b in report["hazard_curve"]:
         tag = " [exploratory]" if b["exploratory"] else ""

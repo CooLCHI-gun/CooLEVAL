@@ -17,3 +17,9 @@ reports/memory-eval/
 reports/memory-eval-full/
 reports/*.md
 reports/cooleval-weekly.log
+demo/*.db
+demo/*.db-*
+demo/*.jsonl
+demo/eval.db
+demo/metrics.out
+demo/etl.out
