@@ -125,10 +125,19 @@ CooLEVAL 的立場：**寧可不出結論，也不可出錯結論。**
 
 ## 快速開始（Quickstart）
 
-執行評估的三條核心指令，依序執行即可：
+**先睇 meltdown 形狀——零設定、一條指令、約 30 秒：**
 
-1. `python3 scripts/eval-etl.py` — 將 raw log 抽取、清理，並寫入 SQLite，是所有分析的第一步。
-2. `python3 scripts/eval-metrics.py` — 由 DB 計算 success rate、meltdown curve、survival/hazard 等 metrics。
-3. `python3 scripts/eval-report.py` — 將計算完成的 metrics 輸出為一份可讀的 report。
+```bash
+pip install cooleval        # 或 git clone ... && cd CooLEVAL
+cooleval demo               # 合成 NON-BENCHMARK fixture → hazard curve
+```
+
+`demo` 會印出 session 成功率由 `<15m ~93%` 跌到 `>24h 0%` 嘅曲線——同真實流量見到嘅形狀相同；呢啲數字係 synthetic shape-checker，唔可以當結果引用。
+
+**帶你自己嘅 telemetry**（Python 3.10+、SQLite3；schema 見 `scripts/eval-etl.py` 頂部）：
+
+1. `cooleval etl` — 將 raw log 抽取、清理，並寫入 SQLite，是所有分析的第一步。
+2. `cooleval metrics` — 由 DB 計算 success rate、meltdown curve、survival/hazard 等 metrics。
+3. `cooleval report` — 將計算完成的 metrics 輸出為一份可讀的 report。
 
 最新資訊請以英文版 README 為準。

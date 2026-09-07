@@ -16,10 +16,22 @@ jobs:
           python-version: "3.11"
 
       - name: Install
-        run: pip install pytest
+        run: |
+          pip install pytest
+          pip install .          # wheel-install path: ships the `cooleval` CLI
 
       - name: Unit tests (pure functions)
         run: pytest -q
+
+      # CLI gate: the advertised `cooleval demo` must work from a wheel install
+      # (scripts resolved from the packaged data-files, not the source tree).
+      - name: CLI gate (pip install -> cooleval demo)
+        run: |
+          set -e
+          cooleval demo > demo/cli.out 2>&1 || { cat demo/cli.out; exit 1; }
+          grep -qE "SESSION-LEVEL" demo/cli.out
+          grep -qE "hazard curve" demo/cli.out
+          cat demo/cli.out | tail -25
 
       # Reproducibility gate: the advertised quickstart (ETL -> metrics) must
       # run end-to-end on a fresh checkout against the demo fixture, WITHOUT

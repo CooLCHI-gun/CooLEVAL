@@ -44,35 +44,34 @@ self-report). It's built for three things:
 
 ## Quickstart
 
-What you need: Python 3.10+, SQLite3, and agent telemetry in the expected schema
-(JSONL spans + lifecycle events; see the header of `scripts/eval-etl.py`). Paths are
-overridable via `EVAL_DB` / `EVAL_OUT` / `EVAL_ROOT` env vars.
+**See the meltdown in ~30 seconds — no setup, no telemetry, one command:**
 
 ```bash
-git clone https://github.com/CooLCHI-gun/CooLEVAL.git && cd CooLEVAL
-pip install pyyaml          # only dep outside stdlib
-
-# 1. Ingest telemetry (idempotent — safe to rerun)
-python3 scripts/eval-etl.py
-
-# 2. Metrics: success rate, hazard curve, failure taxonomy (Wilson CIs, n-gate)
-python3 scripts/eval-metrics.py
-
-# 3. Dogfood battery: N runs of real tasks through your agent loop, artifacts verified
-python3 scripts/eval-runner.py --task t1_file_summary --runs 10
-
-# 4. Compare models on the same real tasks (any provider your agent supports)
-python3 scripts/eval-runner.py --model claude-sonnet-4-6 --provider opencode-zen --runs 3
-
-# 5. Extreme ceiling battery: frontier models × 5 hard tests via direct API
-python3 scripts/extreme-test-runner.py --models claude-opus-5,deepseek-v4-pro
-
-# 6. Report
-python3 scripts/eval-report.py
+pip install cooleval          # or: git clone https://github.com/CooLCHI-gun/CooLEVAL.git && cd CooLEVAL
+cooleval demo                 # synthetic NON-BENCHMARK fixture -> hazard curve
 ```
 
-Task specs are pre-registered with `spec_hash` and `difficulty` — reproducibility
-without outcome-inferred labels.
+`demo` prints the session-success curve collapsing from `<15m ~93%` down to
+`>24h 0%` — the same *shape* CooLEVAL finds in real traffic. Those numbers are
+synthetic shape-checkers, never to be quoted as a result.
+
+**Bring your own telemetry** (Python 3.10+, SQLite3; see the header of
+`scripts/eval-etl.py` for the expected JSONL spans + lifecycle-event schema;
+paths overridable via `EVAL_DB` / `EVAL_OUT` / `EVAL_ROOT`):
+
+```bash
+cooleval etl                                    # 1. ingest (idempotent, safe to rerun)
+cooleval metrics                                # 2. success rate, hazard curve, taxonomy
+cooleval runner --task t1_file_summary --runs 10   # 3. dogfood battery, artifacts verified
+cooleval runner --model claude-sonnet-4-6 --provider opencode-zen --runs 3  # 4. compare models
+cooleval extreme --models claude-opus-5,deepseek-v4-pro  # 5. frontier ceiling battery
+cooleval report                                 # 6. report
+```
+
+Every `cooleval` subcommand is a thin wrapper over the same `scripts/*.py`
+pipeline — subcommand flags pass straight through, so all native arguments keep
+working. Task specs are pre-registered with `spec_hash` and `difficulty` —
+reproducibility without outcome-inferred labels.
 
 ## Step-level trajectory — see which tool call actually broke
 
@@ -120,7 +119,7 @@ headline finding of CooLEVAL on real traffic.
 
 **Provenance:** these 586 sessions are our own agent runs, across our own dogfood workload
 over the period ending 2026-08-16. To regenerate every table from your own data:
-`python3 scripts/eval-etl.py && python3 scripts/eval-metrics.py`.
+`cooleval etl && cooleval metrics`.
 
 ## Survival & Hazard Analysis
 
@@ -240,6 +239,9 @@ One script per layer, no framework.
 ## Repository Layout
 
 ```text
+cooleval/                    installable package — one `cooleval` CLI
+  cli.py                     subcommand dispatcher (demo/etl/metrics/runner/...) -> scripts/*.py
+pyproject.toml               packaging: `pip install cooleval`
 scripts/
   eval-etl.py              L0 ETL (idempotent, reconcilable)
   eval-metrics.py          L1 metrics (Wilson CI, hazard curve, n-gate, failure risk ratio)
@@ -286,6 +288,7 @@ docs/README-zh-TW.md       繁體中文導讀 (reading guide; English README is 
 - [x] Read-only MCP server over the eval DB (for other agents)
 - [x] Self-hosted Hermes plugin (agent-plugin/cooleval)
 - [x] Step-level trajectory (`trace-steps.py`) + failure risk ratio
+- [x] One-command CLI + demo-first quickstart (`pip install cooleval` → `cooleval demo`)
 - [ ] Weekly scheduled reports
 
 ## License

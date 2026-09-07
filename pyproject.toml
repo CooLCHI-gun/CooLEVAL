@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cooleval"
+version = "0.1.0"
+description = "How long can your AI agent work before it breaks? Dogfood reliability metrics for production agents — measured on your own telemetry, not a benchmark."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "CooLCHI-gun" }]
+keywords = ["agent", "llm", "reliability", "evaluation", "survival", "dogfood", "self-hosted"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Software Development :: Quality Assurance",
+]
+dependencies = ["PyYAML"]
+
+[project.urls]
+Homepage = "https://github.com/CooLCHI-gun/CooLEVAL"
+Repository = "https://github.com/CooLCHI-gun/CooLEVAL"
+
+[project.scripts]
+cooleval = "cooleval.cli:main"
+
+[tool.setuptools]
+packages = ["cooleval"]
+
+# Ship the pipeline scripts alongside the package so `pip install cooleval`
+# produces a working `cooleval` CLI without a git clone.
+[tool.setuptools.data-files]
+"cooleval/scripts" = [
+    "scripts/bench_s1s2.py",
+    "scripts/cooleval_mcp.py",
+    "scripts/eval-api.py",
+    "scripts/eval-etl.py",
+    "scripts/eval-memory-full.py",
+    "scripts/eval-memory.py",
+    "scripts/eval-metrics.py",
+    "scripts/eval-report.py",
+    "scripts/eval-runner.py",
+    "scripts/eval-tokeneff.py",
+    "scripts/extreme-test-runner.py",
+    "scripts/make-demo-data.py",
+    "scripts/make_animate.py",
+    "scripts/make_assets.py",
+    "scripts/memory_health_report.py",
+    "scripts/memory_provider.py",
+    "scripts/price-probe.py",
+    "scripts/score_tests.py",
+    "scripts/summarize_extreme.py",
+    "scripts/trace-steps.py",
+]

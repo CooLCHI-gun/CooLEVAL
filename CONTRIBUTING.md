@@ -32,11 +32,17 @@ human owner. When in doubt, leave a note in the PR/commit like
 ## How to run
 
 ```bash
-python3 scripts/eval-etl.py         # ingest telemetry (idempotent — safe to rerun)
-python3 scripts/eval-metrics.py     # metrics w/ Wilson CI + n-gate
-python3 scripts/eval-runner.py --task t1_file_summary --runs 10   # dogfood battery
-python3 scripts/eval-report.py      # report
+pip install .               # or `pip install cooleval`; also `pip install -e .`
+cooleval demo               # synthetic NON-BENCHMARK fixture -> hazard curve (no telemetry needed)
+cooleval etl                # ingest telemetry (idempotent — safe to rerun)
+cooleval metrics            # metrics w/ Wilson CI + n-gate
+cooleval runner --task t1_file_summary --runs 10   # dogfood battery
+cooleval report             # report
 ```
+
+Every `cooleval` subcommand maps 1:1 to a `scripts/*.py` entry (see the
+Repository layout) and passes extra flags straight through, so you can always
+drop down to the raw script if you need to.
 
 Requires Python 3.10+ (the code uses `X | None` type unions) and SQLite3.
 Only dependency outside stdlib is PyYAML (for a couple of scripts). No venv,

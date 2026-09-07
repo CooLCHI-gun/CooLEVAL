@@ -18,6 +18,15 @@ so the curve has the same *shape* as the real meltdown.
 
 ## Reproduce the pipeline
 
+Easiest — one command (installs nothing extra, `cooleval` ships the fixture):
+
+```bash
+pip install cooleval   # or run from a clone: `cooleval demo`
+cd /tmp && cooleval demo    # writes ./demo, prints the hazard curve
+```
+
+Same thing, step by step (the underlying `scripts/*.py` path):
+
 ```bash
 git clone https://github.com/CooLCHI-gun/CooLEVAL.git && cd CooLEVAL
 
