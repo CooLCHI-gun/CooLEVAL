@@ -8,7 +8,7 @@
 Dogfood reliability metrics for production agents — measured on your own telemetry, not a benchmark.</p>
 
 <p align="center">
-  <a href="docs/README-zh-TW.md"><strong>繁體中文導讀 →</strong></a>
+  <a href="docs/README-yue.md"><strong>廣東話導讀 →</strong></a>
 </p>
 
 <p align="center">
@@ -24,7 +24,7 @@ Dogfood reliability metrics for production agents — measured on your own telem
 </p>
 
 <p align="center">
-  <a href="#why-cooleval">Why CooLEVAL</a> · <a href="#quickstart">Quickstart</a> · <a href="#step-level-trajectory">Step trace</a> · <a href="#the-meltdown-curve">The meltdown curve</a> · <a href="#limitations">Limitations</a>
+  <a href="#why-cooleval">Why CooLEVAL</a> · <a href="#quickstart">Quickstart</a> · <a href="#step-level-trajectory">Step trace</a> · <a href="#the-meltdown-curve">The meltdown curve</a> · <a href="#what-to-do-about-it">What to do</a> · <a href="#limitations">Limitations</a>
 </p>
 
 > **98.4% success under 15 min → 7.4% over 1 hour — a 13.3× collapse in success rate**
@@ -132,6 +132,39 @@ Survival (blue) tracks the probability a session is still successful as duration
 hazard (red) is the per-bucket failure rate. Guardrail metrics — tool retries, loop events,
 context growth — are tracked as meltdown *precursors*, so you can intervene before failure,
 not after.
+
+## What to do about it
+
+The meltdown is an **association**, not a proven cause: long sessions may simply be harder
+tasks. So these are *testable interventions*, each paired with a proxy CooLEVAL already
+measures — not cures. Treat every one as a hypothesis and evaluate it on matched task types,
+with uncertainty intervals and artifact-verified outcomes.
+
+1. **Budget the session.** Cap elapsed time, tool calls or retries; at the limit, checkpoint
+   and hand off instead of continuing. *Proxy:* success rate by budget band; over-budget run rate.
+2. **Checkpoint to disk, not to context.** Persist a compact, atomic record of completed work
+   and verified artifacts, so a crash cannot become a false completion. *Proxy:* interrupted
+   runs that resume to a verified artifact; recovery time.
+3. **Make handoff / resume first-class.** Objective, constraints, evidence references, next
+   action — and verify the handoff, not just that it was written. *Proxy:* post-handoff
+   completion; tokens and time to resume; missing-state rate.
+4. **Isolate sub-agents around bounded subtasks** and validate results before merging. Adding
+   agents is not assumed to help. *Proxy:* verified subtask acceptance; rework rate; end-to-end
+   success and cost versus a single-agent condition.
+5. **Keep context lean.** Summarise or retrieve instead of carrying an unbounded transcript;
+   drop stale tool output; keep evidence references so compression cannot silently erase a
+   requirement. *Proxy:* context-growth rate; repeated or irrelevant tool calls;
+   requirement-omission rate.
+6. **Alert on the precursors CooLEVAL already tracks** (retries, loops, slow steps, context
+   growth) behind a threshold and an explicit response policy — and report false alarms too.
+   *Proxy:* alert precision and recall against later failure; lead time before failure.
+7. **Keep artifact-verified completion as the gate** (already a design principle). *Proxy:*
+   false-completion rate.
+
+**What this section does not claim:** that shortening a session *causes* success, that a short
+session is inherently more reliable, or that the pooled contrast generalises beyond this
+workload. Evaluate with matched task types, uncertainty intervals and artifact-based outcomes;
+keep low-n buckets exploratory — the same discipline the rest of CooLEVAL is built on.
 
 ## Extreme Tests — where the ceiling actually shows
 
@@ -262,9 +295,10 @@ scripts/
   make_animate.py          regenerate animated GIFs + logo
 assets/                    original visuals (static, animated, logo.svg)
 agent-plugin/cooleval/     self-hosted Hermes plugin (read-only local queries)
+agent-plugin/cooleval-guard/  observe-only meltdown-precursor monitor (never blocks, no network)
 CONTRIBUTING.md            contribution + stats-honesty contract
 RESEARCH.md                probe findings, model batteries, methodology
-docs/README-zh-TW.md       繁體中文導讀 (reading guide; English README is canonical)
+docs/README-yue.md        廣東話導讀 (Cantonese reading guide; English README is canonical)
 ```
 
 ## Limitations
@@ -287,9 +321,16 @@ docs/README-zh-TW.md       繁體中文導讀 (reading guide; English README is 
 - [x] Token-efficiency metric (tokens-per-success, cache-adjusted)
 - [x] Read-only MCP server over the eval DB (for other agents)
 - [x] Self-hosted Hermes plugin (agent-plugin/cooleval)
+- [x] Observe-only precursor-monitor plugin (agent-plugin/cooleval-guard)
 - [x] Step-level trajectory (`trace-steps.py`) + failure risk ratio
 - [x] One-command CLI + demo-first quickstart (`pip install cooleval` → `cooleval demo`)
 - [ ] Weekly scheduled reports
+
+## Related
+
+**CooLRouter** — the local-first, intent-guided routing layer this reliability instrumentation
+was built to observe — is at <https://github.com/CooLCHI-gun/CooLRouter>. CooLEVAL is the
+*measurement*; CooLRouter is the *workspace the measurement observes*.
 
 ## License
 
