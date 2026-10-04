@@ -1,0 +1,6 @@
+name: cooleval-guard
+version: 0.1.0
+description: "Observe-only meltdown-precursor monitor (retries, loops, slow steps, context growth) for a Hermes agent. Never blocks, never writes, no network — it only reports."
+author: "CooLCHI-gun"
+hooks:
+  - pre_tool_call
