@@ -31,6 +31,10 @@ Dogfood reliability metrics for production agents — measured on your own telem
 > (failure risk ratio ≈ **58×**, 95% CI 29–117×). Every number here is printed by
 > `eval-metrics.py` from our own real sessions (2026-08-16), not a synthetic benchmark.
 
+<p align="center">
+  <img src="assets/launch-10s.gif" alt="CooLEVAL in ten seconds: 586 sessions, success collapsing from 98.4% under 15 minutes to 7.4% after an hour, then 13.3x" width="900">
+</p>
+
 ## Why CooLEVAL
 
 Your agent looks great in a 15-minute smoke test. **It doesn't fail linearly as it runs
